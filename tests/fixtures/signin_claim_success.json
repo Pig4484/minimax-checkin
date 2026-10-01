@@ -1,0 +1,23 @@
+{
+  "_note": "2026-09-28 實測擷取：點擊簽到按鈕後 POST /minimax-cloud/api/v1/signin/claim（body 為 {}）的回應",
+  "data": {
+    "panel": {
+      "scene": 2,
+      "days": [
+        { "day_no": 1, "points": 800, "bonus_points": 400, "status": 3, "is_today": true },
+        { "day_no": 2, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+        { "day_no": 3, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+        { "day_no": 4, "points": 2000, "bonus_points": 1000, "status": 1, "is_today": false },
+        { "day_no": 5, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+        { "day_no": 6, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+        { "day_no": 7, "points": 2000, "bonus_points": 1000, "status": 1, "is_today": false }
+      ]
+    },
+    "claim_id": "2104563840850071839",
+    "claim_result": 1,
+    "day_no": 1,
+    "points": 800,
+    "expire_at_ms": 1793116800000
+  },
+  "base_resp": { "status_code": 0, "status_msg": "ok" }
+}

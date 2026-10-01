@@ -1,0 +1,16 @@
+{
+  "_note": "2026-09-28 實測擷取：登入後、今日尚未簽到時 GET /minimax-cloud/api/v1/signin/status 的回應",
+  "data": {
+    "scene": 4,
+    "days": [
+      { "day_no": 1, "points": 800, "bonus_points": 400, "status": 2, "is_today": true },
+      { "day_no": 2, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+      { "day_no": 3, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+      { "day_no": 4, "points": 2000, "bonus_points": 1000, "status": 1, "is_today": false },
+      { "day_no": 5, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+      { "day_no": 6, "points": 800, "bonus_points": 400, "status": 1, "is_today": false },
+      { "day_no": 7, "points": 2000, "bonus_points": 1000, "status": 1, "is_today": false }
+    ]
+  },
+  "base_resp": { "status_code": 0, "status_msg": "ok" }
+}

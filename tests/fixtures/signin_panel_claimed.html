@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+  「今日已簽到」的 DOM 假設樣本（非實測擷取）。
+  實測結果：官方在已簽到當日**完全不渲染** signin-card（app 主要靠 signin/status 判定），
+  本檔案僅用於驗證「若官方改為顯示停用按鈕」時，DOM 備援判定仍能正確運作。
+-->
+<html lang="en">
+<body class="dark">
+  <div class="signin-card-container" data-testid="signin-card">
+    <div class="signin-card-surface relative rounded-2xl p-3">
+      <h2 class="m-0 text-sm font-medium">Daily check-in</h2>
+      <p class="mt-1 text-xs">Check in consecutively to earn more Credits</p>
+      <div class="signin-progress" role="list">
+        <div class="signin-day text-text_default_accent" data-testid="signin-day-1" role="listitem">
+          <span class="signin-day-points" data-testid="signin-day-reward-1">800</span>
+        </div>
+      </div>
+      <button class="mavis-button black signin-claim-button h-8 w-full rounded-lg text-sm font-medium"
+              type="button" aria-label="Checked in" disabled>
+        <span class="truncate">Checked in</span>
+      </button>
+    </div>
+  </div>
+</body>
+</html>

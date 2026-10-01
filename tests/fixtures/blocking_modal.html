@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  2026-09-29 實測擷取：官方更新公告彈窗會以 fixed inset-0 z-[9999] 蓋住整頁並攔截點擊，
+  導致簽到按鈕點不到（Playwright click 逾時）。此 fixture 用於驗證自動關閉遮罩的邏輯。
+-->
+<html lang="en">
+<body class="dark">
+  <div role="dialog" aria-modal="true" aria-label="The Latest MiniMax Code Update Is Here."
+       data-connect-mobile-hint-dismiss-boundary=""
+       class="fixed inset-0 z-[1001] z-[9999] bg-utility_overlay">
+    <div class="flex flex-1 flex-col items-center justify-center p-0">
+      <div class="update-modal">
+        <h2>The Latest MiniMax Code Update Is Here.</h2>
+        <button type="button" aria-label="Close"
+                class="close-button">Close</button>
+        <button type="button">Try it now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="signin-card-container" data-testid="signin-card">
+    <div class="signin-card-surface relative rounded-2xl p-3">
+      <h2 class="m-0 text-sm font-medium">Daily check-in</h2>
+      <p class="mt-1 text-xs">Check in consecutively to earn more Credits</p>
+      <div class="signin-progress" role="list">
+        <div class="signin-day text-text_default_accent" data-testid="signin-day-1" role="listitem">
+          <span class="signin-day-points" data-testid="signin-day-reward-1">800</span>
+        </div>
+      </div>
+      <button class="mavis-button black signin-claim-button h-8 w-full rounded-lg text-sm font-medium"
+              type="button" aria-label="Check in for 800 Credits">
+        <span class="truncate">Check in for</span>
+      </button>
+    </div>
+  </div>
+</body>
+</html>

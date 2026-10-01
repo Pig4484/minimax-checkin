@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  依 2026-09-28 實測擷取還原的「今日可簽到」面板結構（classes / data-testid 皆與實際一致）。
+  用於 tests/test_selectors.py 的離線選擇器測試。
+-->
+<html lang="en">
+<body class="dark">
+  <div class="signin-card-container" data-testid="signin-card">
+    <div class="signin-card-surface relative rounded-2xl border-[0.5px] border-border_default bg-bg_grouped_secondary p-3 text-text_default_primary">
+      <div class="signin-background-artwork"></div>
+      <button type="button" aria-label="Close check-in"
+              class="absolute right-2 top-2 z-10 flex size-6 items-center justify-center rounded-md border-0 bg-transparent p-0">
+        <svg width="16" height="16" viewBox="0 0 16 16"></svg>
+      </button>
+      <div class="relative min-h-10 pl-1">
+        <div class="flex min-h-5 items-start gap-1 pr-20">
+          <h2 class="m-0 min-w-0 text-sm font-medium leading-5 break-words">Daily check-in</h2>
+          <button type="button" aria-label="About check-in Credits"
+                  class="inline-flex size-4 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0">
+            <svg width="14" height="14" viewBox="0 0 16 16"></svg>
+          </button>
+        </div>
+        <p class="mb-0 mt-1 text-xs leading-4 text-text_default_secondary">Check in consecutively to earn more Credits</p>
+      </div>
+      <div class="relative mt-8">
+        <div class="signin-progress-scroll">
+          <div class="signin-progress" role="list">
+            <div class="signin-day text-text_default_accent" data-testid="signin-day-1" role="listitem">
+              <svg class="signin-day-icon"></svg>
+              <span class="signin-day-points" data-testid="signin-day-reward-1">800</span>
+            </div>
+            <svg class="signin-connector text-border_default"></svg>
+            <div class="signin-day text-text_default_tertiary" data-testid="signin-day-2" role="listitem">
+              <span class="signin-day-points" data-testid="signin-day-reward-2">800</span>
+            </div>
+            <svg class="signin-connector text-border_default"></svg>
+            <div class="signin-day text-text_default_tertiary" data-testid="signin-day-3" role="listitem">
+              <span class="signin-day-points" data-testid="signin-day-reward-3">800</span>
+            </div>
+            <svg class="signin-connector text-border_default"></svg>
+            <div class="signin-day text-text_default_tertiary" data-testid="signin-day-4" role="listitem">
+              <span class="signin-day-points" data-testid="signin-day-reward-4">2,000</span>
+            </div>
+            <svg class="signin-connector text-border_default"></svg>
+            <div class="signin-day text-text_default_tertiary" data-testid="signin-day-5" role="listitem">
+              <span class="signin-day-points" data-testid="signin-day-reward-5">800</span>
+            </div>
+            <svg class="signin-connector text-border_default"></svg>
+            <div class="signin-day text-text_default_tertiary" data-testid="signin-day-6" role="listitem">
+              <span class="signin-day-points" data-testid="signin-day-reward-6">800</span>
+            </div>
+            <svg class="signin-connector text-border_default"></svg>
+            <div class="signin-day text-text_default_tertiary" data-testid="signin-day-7" role="listitem">
+              <span class="signin-day-points" data-testid="signin-day-reward-7">2,000</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span data-testid="signin-bonus"
+            class="signin-bonus-tag absolute right-0 top-[-9.5px] inline-flex max-w-full items-center gap-0.5 rounded-t-xl rounded-bl-xl px-2 py-0.5 text-xs font-medium">
+        <span class="truncate">ADD</span><span aria-hidden="true">400</span>
+      </span>
+      <button class="mavis-button black signin-claim-button h-8 w-full rounded-lg text-sm font-medium"
+              type="button" aria-label="Check in for 800 Credits">
+        <span class="inline-flex min-w-0 max-w-full items-center justify-center gap-0.5">
+          <span class="truncate">Check in for</span>
+          <span aria-hidden="true" class="inline-flex shrink-0">800</span>
+        </span>
+      </button>
+    </div>
+  </div>
+</body>
+</html>
