@@ -82,7 +82,19 @@ def main() -> int:
 
     instance = acquire_single_instance() if cfg.single_instance else True
     if instance is None:
-        print(f"{APP_NAME} 已在執行中（請檢查系統匣圖示），本次啟動結束。")
+        # 注意：此時日誌系統尚未初始化，且 pythonw 下沒有主控台，
+        # 因此直接彈窗告知（而不是只 print／寫 log，否則使用者完全看不到）。
+        try:
+            from PySide6.QtWidgets import QMessageBox
+
+            box = QMessageBox()
+            box.setIcon(QMessageBox.Information)
+            box.setWindowTitle(APP_NAME)
+            box.setText(f"{APP_NAME} 已在執行中。")
+            box.setInformativeText("程式已縮到系統匣（工作列右下角 ^ 圖示區），雙擊托盤圖示即可叫回主視窗。")
+            box.exec()
+        except Exception:
+            pass
         return 0
 
     theme_map = {THEME_DARK: Theme.DARK, THEME_LIGHT: Theme.LIGHT, THEME_SYSTEM: Theme.AUTO}
@@ -134,7 +146,9 @@ def main() -> int:
     window = MainWindow(cfg, worker)
     worker.start()
 
-    if args.minimized or cfg.start_minimized:
+    # --minimized 是開機自啓動／背景啟動專用（登錄檔命令自帶此旗標）。
+    # 一般手動雙擊啟動一律顯示主視窗；「啟動時縮到系統匣」只影響開機自啓動那一次。
+    if args.minimized:
         window.hide()
     else:
         window.show()

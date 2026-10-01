@@ -157,7 +157,7 @@ class SettingsPage(SmoothScrollArea):
         )
         self.startMinimizedCard = self._add(
             group,
-            SwitchCard(FluentIcon.MINIMIZE, "啟動時縮到系統匣", "開機自啓動時不顯示主視窗", self),
+            SwitchCard(FluentIcon.MINIMIZE, "啟動時縮到系統匣", "僅開機自啓動時生效：不顯示主視窗；手動開啟一律顯示主視窗", self),
             "start_minimized",
             "checkedChanged",
         )
