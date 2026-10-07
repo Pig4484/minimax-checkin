@@ -41,6 +41,89 @@ STATUS_COLORS = {
 }
 
 
+def _flat_label(label: "QLabel") -> "QLabel":
+    """讓卡片內的文字標籤不繪製自身背景（避免在半透明卡片上顯出方框）。
+
+    Fluent 的 CaptionLabel / StrongBodyLabel 等自帶主題 qss，在
+    ElevatedCardWidget（半透明）內會讓文字框底色與卡片不一致，
+    看起來就是一塊塊深淺不同的方框。這裡強制關閉自動填充並清理
+    可能殘留的背景屬性，只保留文字顏色。
+    """
+    try:
+        label.setAutoFillBackground(False)
+    except Exception:
+        pass
+    try:
+        from PySide6.QtCore import Qt
+
+        label.setAttribute(Qt.WA_OpaquePaintEvent, False)
+        label.setAttribute(Qt.WA_NoSystemBackground, True)
+    except Exception:
+        pass
+    return label
+
+
+# 內容區底色（Qt 調色盤）：診斷證實 SmoothScrollArea 的 viewport 會忽略
+# Fluent QSS，真正底色是內容容器 QWidget 的 Window 色彩角色。
+# 淺色 #f9f9f9（視窗）/#ffffff（卡片區）、深色 #202020/#282828（對齊 FluentWidget 官方底色）。
+PAGE_PALETTES = {
+    True: {"window": "#202020", "base": "#282828", "text": "#f3f3f3"},
+    False: {"window": "#f9f9f9", "base": "#ffffff", "text": "#1b1b1b"},
+}
+
+
+def sync_page_palettes(window) -> None:
+    """把各頁面容器／viewport 的調色盤同步為目前主題（修正深淺不一致）。"""
+    try:
+        from PySide6.QtGui import QColor, QPalette
+
+        from qfluentwidgets import isDarkTheme
+
+        pal = PAGE_PALETTES[bool(isDarkTheme())]
+        bg = QColor(pal["window"])
+        base = QColor(pal["base"])
+        text = QColor(pal["text"])
+        pages = [getattr(window, n, None) for n in ("homePage", "accountPage", "logPage", "settingsPage")]
+        for page in pages:
+            if page is None:
+                continue
+            targets = [page]
+            try:
+                widget = page.widget()
+                if widget is not None:
+                    targets.append(widget)
+            except Exception:
+                pass
+            try:
+                viewport = page.viewport()
+                if viewport is not None:
+                    targets.append(viewport)
+            except Exception:
+                pass
+            for target in targets:
+                try:
+                    p = target.palette()
+                    p.setColor(QPalette.ColorRole.Window, bg)
+                    p.setColor(QPalette.ColorRole.Base, base)
+                    p.setColor(QPalette.ColorRole.WindowText, text)
+                    p.setColor(QPalette.ColorRole.Text, text)
+                    target.setPalette(p)
+                    if target is not page or target.autoFillBackground():
+                        target.setAutoFillBackground(True)
+                    target.update()
+                except Exception:
+                    continue
+    except Exception:
+        pass
+
+
+def plain_caption(text: str, parent=None) -> "QLabel":
+    """卡片／Header 內的說明文字：使用原生 QLabel，避免 Fluent Label 帶底。"""
+    label = QLabel(text, parent)
+    _flat_label(label)
+    return label
+
+
 def sync_qt_color_scheme() -> None:
     """讓 Qt 的 colorScheme 跟隨 App 主題（而非 Windows 系統設定）。
 
@@ -65,64 +148,41 @@ def sync_qt_color_scheme() -> None:
 
 
 def page_background_color() -> "QColor":
-    """目前主題的內容區背景色（不透明，避免透出底層材質造成錯色）。"""
+    """(Deprecated) kept only for old unit tests; Fluent native theme owns backgrounds."""
     from PySide6.QtGui import QColor
     from qfluentwidgets import isDarkTheme
 
-    return QColor("#1c1c1c") if isDarkTheme() else QColor("#f3f3f3")
+    return QColor("#202020") if isDarkTheme() else QColor("#f9f9f9")
 
 
 def make_background_transparent(widget) -> None:
-    """將頁面／viewport 的背景設為「目前主題的實色背景」。
-
-    背景：Qt 6.8+ 會自動跟隨 Windows 的深色模式，若頁面使用 Qt 原生調色盤繪製，
-    App 切到淺色時內容區仍會是深色；反之若設為完全透明，又會透出底層的
-    Mica 材質（跟隨系統色）而造成淺色模式下背景變暗、深色模式下變白。
-    因此這裡明確指定「不透明的主題背景色」，兩種主題都正確。
-    """
-    color = page_background_color().name()
+    """(Deprecated) no-op cleaner; Fluent native QSS owns page backgrounds."""
     try:
-        widget.setStyleSheet(f"background: {color};")
+        if widget.styleSheet() and "background" in widget.styleSheet().lower():
+            widget.setStyleSheet("")
     except Exception:
         pass
     try:
         viewport = widget.viewport()
-        viewport.setAutoFillBackground(False)
-        viewport.setStyleSheet(f"background: {color};")
-    except Exception:
-        pass
-    try:
-        widget.setAutoFillBackground(False)
+        if viewport is not None and viewport.styleSheet() and "background" in viewport.styleSheet().lower():
+            viewport.setStyleSheet("")
     except Exception:
         pass
 
 
 def refresh_page_backgrounds(window) -> None:
-    """主題切換後，重新套用內容區背景色到所有頁面。"""
-    for page in (getattr(window, "homePage", None),
-                 getattr(window, "accountPage", None),
-                 getattr(window, "logPage", None),
-                 getattr(window, "settingsPage", None)):
-        if page is None:
-            continue
-        make_background_transparent(page)
-        inner = page.widget() if hasattr(page, "widget") else None
-        if inner is not None:
-            try:
-                inner.setStyleSheet(f"background: {page_background_color().name()};")
-                inner.setAutoFillBackground(False)
-            except Exception:
-                pass
+    """(Deprecated) no-op; backgrounds belong to Fluent native mechanism."""
     try:
-        window.stackedWidget.setStyleSheet(
-            f"background: {page_background_color().name()};"
-        )
+        stacked = window.stackedWidget
+    except Exception:
+        return
+    try:
+        if stacked.styleSheet() and "background" in stacked.styleSheet().lower():
+            stacked.setStyleSheet("")
+            stacked.update()
     except Exception:
         pass
-    try:
-        window.update()
-    except Exception:
-        pass
+
 
 
 def pill(text: str, rgb: tuple[int, int, int]) -> QLabel:

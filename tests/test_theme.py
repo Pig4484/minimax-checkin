@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.ui.components import make_background_transparent, sync_qt_color_scheme
+from app.ui.components import (
+    make_background_transparent,
+    refresh_page_backgrounds,
+    sync_qt_color_scheme,
+)
 
 
 def _qt_app():
@@ -32,20 +36,40 @@ def test_sync_qt_color_scheme_matches_app_theme(monkeypatch):
 
 
 def test_make_background_transparent_uses_theme_color():
-    """頁面與 viewport 必須套用「當前主題的實色背景」，不可依賴系統配色或透出底層材質。"""
+    """歷史遺留的背景 QSS 必須被清除（否則會繼承污染卡片內的文字標籤）。
+
+    實測證實：祖先元件上的無選擇器 ``background: ...`` QSS 會直接套用到
+    卡片內的 QLabel，形成「文字背後一塊塊深色方框」。因此該函式必須清除
+    殘留背景，且自身不可再設定任何 background。
+    """
     from PySide6.QtWidgets import QWidget
 
-    from qfluentwidgets import Theme, isDarkTheme, setTheme
+    _qt_app()
+    for leftover in ("background: #1c1c1c;", "background: #f3f3f3;"):
+        widget = QWidget()
+        widget.setStyleSheet(leftover)
+        make_background_transparent(widget)
+        assert "background" not in widget.styleSheet().lower()
+
+
+def test_refresh_backgrounds_does_not_override_native_theme():
+    """不得再對 stackedWidget 強制設定不透明背景（背景屬於 Fluent 原生機制）。
+
+    歷史版本曾在此用 ``#stackedWidget{...}`` 覆寫背景並脫離 QSS 管理，
+    實測證實這會關閉亞克力效果並在主題切換時錯色。現在只允許清理殘留。
+    """
+    from PySide6.QtWidgets import QStackedWidget
 
     _qt_app()
-    for theme, expected in ((Theme.DARK, "#1c1c1c"), (Theme.LIGHT, "#f3f3f3")):
-        setTheme(theme)
-        widget = QWidget()
-        make_background_transparent(widget)
-        style = widget.styleSheet()
-        assert expected in style.lower(), f"{theme} 應使用 {expected}，實際 {style!r}"
-        assert "transparent" not in style.lower(), "不可設為透明（會透出底層材質）"
-        assert isDarkTheme() in (True, False)
+    stacked = QStackedWidget()
+    stacked.setObjectName("stackedWidget")
+
+    class FakeWindow:
+        stackedWidget = stacked
+
+    stacked.setStyleSheet("#stackedWidget{background: #ff0000;}")
+    refresh_page_backgrounds(FakeWindow())
+    assert "background" not in stacked.styleSheet().lower()
 
 
 def test_pages_apply_background():
@@ -59,15 +83,77 @@ def test_pages_apply_background():
         assert "make_background_transparent" in source, f"{module.__name__} 未套用背景"
 
 
-def test_mica_disabled():
-    """不應使用 Mica 半透明材質（會造成主題與內容區底色不一致）。"""
+def test_mica_uses_native_mechanism():
+    """應使用 Fluent 官方原生背景機制（Mica 開啟），不得強制關閉。
+
+    實測證實：關閉 Mica 又把頁面設為透明，會讓內容區失去底色來源、
+    在深淺主題下都錯色。FluentWidget 預設即 Mica 開啟。
+    """
     import inspect
 
     from app.ui.main_window import MainWindow
 
     source = inspect.getsource(MainWindow.__init__)
-    assert "setMicaEffectEnabled(False)" in source
-    assert "setMicaEffectEnabled(True)" not in source
+    assert "setMicaEffectEnabled(False)" not in source
+
+
+def test_apply_theme_syncs_window_and_page_backgrounds():
+    """_apply_theme 必須同步視窗底色與內容容器調色盤（深淺一致）。
+
+    實測證實三個獨立底色來源：
+    1. 視窗 backgroundColor（導覽列／標題列透出它）
+    2. 內容容器 QWidget 的 Window 色彩角色（viewport 忽略 QSS）
+    3. Qt colorScheme（原生調色盤元件）
+    """
+    import inspect
+
+    from app.ui.main_window import MainWindow
+
+    source = inspect.getsource(MainWindow._apply_theme)
+    assert "sync_page_palettes" in source
+    assert "sync_qt_color_scheme" in source
+    assert "_normalBackgroundColor" in source
+
+
+def test_sync_page_palettes_matches_app_theme():
+    """內容容器調色盤必須跟隨 App 主題（深色深、淺色淺）。"""
+    from PySide6.QtGui import QPalette
+    from PySide6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QApplication
+    from qfluentwidgets import Theme, setTheme
+
+    from app.ui.components import PAGE_PALETTES, sync_page_palettes
+
+    QApplication.instance() or QApplication([])
+    page = QWidget()
+    container = QWidget(page)
+    viewport = QWidget(page)
+
+    class FakePage(QWidget):
+        def __init__(self):
+            super().__init__()
+            self._container = container
+            self._viewport = viewport
+
+        def widget(self):
+            return self._container
+
+        def viewport(self):
+            return self._viewport
+
+    class FakeWindow:
+        pass
+
+    fake_page = FakePage()
+    for attr in ("homePage", "accountPage", "logPage", "settingsPage"):
+        setattr(FakeWindow, attr, fake_page)
+    for theme, dark in ((Theme.LIGHT, False), (Theme.DARK, True)):
+        setTheme(theme)
+        sync_page_palettes(FakeWindow())
+        expected = PAGE_PALETTES[dark]["window"].lower()
+        for target in (fake_page, container, viewport):
+            actual = target.palette().color(QPalette.ColorRole.Window).name().lower()
+            assert actual == expected, f"{theme} 下應為 {expected}，實際 {actual}"
 
 
 def test_window_has_minimum_size():

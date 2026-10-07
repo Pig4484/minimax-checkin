@@ -29,7 +29,7 @@ from app.constants import APP_NAME, RUN_STATUS_TEXT, RunStatus
 from app.core import autostart
 from app.logger import logger
 from app.ui.account_page import AccountPage
-from app.ui.components import refresh_page_backgrounds, sync_qt_color_scheme
+from app.ui.components import refresh_page_backgrounds, sync_page_palettes, sync_qt_color_scheme
 from app.ui.home_page import HomePage
 from app.ui.icon import app_icon
 from app.ui.log_page import LogPage
@@ -55,12 +55,10 @@ class MainWindow(FluentWindow):
         self.resize(*self._preferred_size())
         # 視窗不可被縮到無法使用（否則內容會被裁切、導覽列被收合）
         self.setMinimumSize(940, 620)
-        # 不使用 Mica 半透明材質：它會跟隨 Windows 系統配色，
-        # 造成 App 主題（淺色）與內容區底色不一致，且在深色主題下反而透出淗色底。
-        try:
-            self.setMicaEffectEnabled(False)
-        except Exception:
-            pass
+        # 使用 Fluent 官方原生背景機制（Mica 亞克力 + 主題底色）：
+        # 實測證實關閉 Mica 又把頁面設為透明，會讓內容區失去底色來源、
+        # 在深淺主題下都錯色。官方 FluentWidget 預設就是 Mica 開啟，
+        # 主題切換時會自動重設 Mica 材質（見 _onThemeChangedFinished）。
 
         self.homePage = HomePage(self)
         self.accountPage = AccountPage(self)
@@ -473,13 +471,46 @@ class MainWindow(FluentWindow):
         除了 qfluentwidgets 的 `setTheme`，還必須同步 Qt 的 colorScheme：
         Qt 6.8+ 會自動跟隨 Windows 的深色模式，若不覆寫，使用原生調色盤繪製的
         元件（例如對話框、捲軸區域）會維持系統配色而與 App 主題不一致。
+
+        注意：`setThemeColor` 也會觸發全量 QSS 刷新，只在 accent 真的改變時呼叫；
+        否則每次切換主題會刷新兩次，造成閃爍與中間態錯色。
         """
+        from PySide6.QtGui import QColor
+
+        from qfluentwidgets import isDarkTheme
+
         mapping = {THEME_DARK: Theme.DARK, THEME_LIGHT: Theme.LIGHT, THEME_SYSTEM: Theme.AUTO}
         setTheme(mapping.get(self.cfg.theme, Theme.DARK))
-        setThemeColor(THEME_ACCENT)
+        if getattr(self, "_last_accent", None) != THEME_ACCENT:
+            setThemeColor(THEME_ACCENT)
+            self._last_accent = THEME_ACCENT
         sync_qt_color_scheme()
+        # Mica 底色：Mica 開啟時視窗底為全透明，靠系統 DWM 材質著色；
+        # 在無 DWM 的環境（offscreen／舊版 Windows）會透出黑色。
+        # 注意不可用 setBackgroundColor()：它會啟動 120ms 動畫，
+        # 而 qconfig.themeChanged 觸發的 _updateBackgroundColor 會把它蓋回透明。
+        # 正確做法是覆寫 _normalBackgroundColor，讓框架自己的更新流程使用主題底色。
+        try:
+            from qfluentwidgets import isDarkTheme as _is_dark
+
+            _dark_bg = QColor("#202020")
+            _light_bg = QColor("#f9f9f9")
+            self._darkBackgroundColor = _dark_bg
+            self._lightBackgroundColor = _light_bg
+            # pylint: disable=protected-access
+            self._normalBackgroundColor = (  # type: ignore[method-assign]
+                lambda _self=self: _dark_bg if _is_dark() else _light_bg
+            )
+            self.backgroundColorAni.stop()
+            self.bgColorObject.backgroundColor = _dark_bg if _is_dark() else _light_bg
+            self.update()
+        except Exception:
+            pass
         # 重新套用內容區背景色（頁面背景需跟隨主題）
         refresh_page_backgrounds(self)
+        # 同步內容容器調色盤：viewport 會忽略 Fluent QSS，
+        # 真正底色是容器 QWidget 的 Window 色彩角色（實測證實）
+        sync_page_palettes(self)
         for page in (self.homePage, self.accountPage, self.logPage, self.settingsPage):
             page.update()
 

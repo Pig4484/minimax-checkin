@@ -49,10 +49,22 @@ LAUNCH_ARGS = [
     "--disable-infobars",
 ]
 
-# 顯示視窗模式：加 --start-maximized 讓視窗最大化，
-# 搭配 context 的 no_viewport=True（Playwright 官方建議做法），
-# 避免在「高 DPI 縮放」的螢幕上因固定 viewport 而讓視窗超出畫面、內容被裁切。
-HEADED_LAUNCH_ARGS = [*LAUNCH_ARGS, "--start-maximized"]
+# 顯示視窗模式（互動登入用）：固定尺寸、由程式置中，而非最大化。
+# 背景：--start-maximized 在多螢幕／DPI 縮放／無主控台行程啟動時可能失效，
+# 且固定 viewport=1440x900 會撐大視窗、底部被工作列切掉（見 tools/repro_login_window.py）。
+# 因此改用 --window-size 固定初始尺寸＋ CDP 置中（_center_login_window），
+# 再以 _fit_page_to_window 縮放兜底。1100x720 在 CSS 工作區（1280x752）與
+# 實體解析度（1920x1200）下都塞得下，無論 CDP 用哪種像素單位都不會溢出。
+LOGIN_WINDOW_WIDTH = 1100
+LOGIN_WINDOW_HEIGHT = 720
+# 登入視窗的頁面 viewport：外框 1100x720 扣掉標題列＋網址列＋邊框（約 120px），
+# 剩下約 600px 可見高度；寬度扣邊框約 16px。固定 viewport 讓版面可預測，
+# 溢出部分由 _fit_page_to_window 縮放兜底（而非依賴視窗最大化）。
+LOGIN_VIEWPORT = {"width": 1080, "height": 600}
+HEADED_LAUNCH_ARGS = [
+    *LAUNCH_ARGS,
+    f"--window-size={LOGIN_WINDOW_WIDTH},{LOGIN_WINDOW_HEIGHT}",
+]
 
 VIEWPORT = {"width": 1440, "height": 900}
 
@@ -343,11 +355,16 @@ class BrowserManager:
             self._playwright = None
 
     # ------------------------------------------------------------------
-    def _context_kwargs(self, cfg, state: dict[str, Any] | None) -> dict[str, Any]:
+    def _context_kwargs(
+        self, cfg, state: dict[str, Any] | None, headed: bool = False
+    ) -> dict[str, Any]:
         """建立 context 的共用選項。
 
-        重點：顯示視窗模式使用 ``no_viewport=True``，讓頁面隨視窗大小自動調整，
-        避免固定 viewport 在高 DPI 螢幕上造成視窗超出畫面、內容被裁切。
+        方案 B（固定視窗置中）：登入視窗一律使用與視窗外框對齊的固定
+        viewport（``LOGIN_VIEWPORT``），不再看全域 ``cfg.headless``。
+        原因：capture_login() 用 headed 啟動瀏覽器，但以前看的是全域
+        ``cfg.headless``（預設 True），导致登入拿到 1440x900、底部被
+        工作列切掉。呼叫端必須明確傳入 headed=True（登入）或省略（簽到）。
         """
         kwargs: dict[str, Any] = {
             "storage_state": state or None,
@@ -355,7 +372,9 @@ class BrowserManager:
             "locale": "zh-TW",
             "timezone_id": "Asia/Taipei",
         }
-        if cfg.headless:
+        if headed:
+            kwargs["viewport"] = dict(LOGIN_VIEWPORT)
+        elif cfg.headless:
             kwargs["viewport"] = VIEWPORT
         else:
             kwargs["no_viewport"] = True
@@ -446,14 +465,10 @@ class BrowserManager:
         return True
 
     async def _maximize_window(self, context, page) -> bool:
-        """確保瀏覽器視窗填滿螢幕工作區（回傳是否已最大化）。
+        """（歷史相容保留）確保瀏覽器視窗填滿螢幕工作區。
 
-        為什麼需要這個：`--start-maximized` 與 CDP 的 `windowState: maximized`
-        在部分環境（多螢幕、DPI 縮放、首次導航後 Chromium 重置視窗尺寸）會失效，
-        使用者看到的就不是最大化視窗。因此：
-          1. 先讀取視窗邊界
-          2. 若明顯偏小，要求切換為 maximized 狀態
-          3. 重新讀取驗證（最多 3 次）
+        方案 B 起登入流程已改用 :meth:`_center_login_window`（固定尺寸置中），
+        不再依賴最大化。此方法僅保留給舊測試與可能的外部呼叫，行為不變。
         """
         try:
             session = await context.new_cdp_session(page)
@@ -496,6 +511,77 @@ class BrowserManager:
                 logger.debug(f"最大化視窗失敗（第 {attempt + 1} 次）：{exc}")
                 await asyncio.sleep(0.3)
         return False
+    async def _center_login_window(self, context, page) -> bool:
+        """把登入視窗設為固定尺寸並置中（方案 B 核心，回傳是否成功）。
+
+        為什麼不用最大化：--start-maximized 在多螢幕／DPI 縮放／無主控台
+        行程啟動時可能失效，且最大化視窗仍可能被工作列蓋住底部。
+        固定 1100x720＋置中可保證在 1280x752 工作區內完整可見；
+        剩餘的頁面溢出由 _fit_page_to_window 縮放兜底。
+        """
+        try:
+            session = await context.new_cdp_session(page)
+        except Exception as exc:
+            logger.debug(f"無法建立 CDP session：{exc}")
+            return False
+        for attempt in range(3):
+            try:
+                info = await session.send("Browser.getWindowForTarget")
+                window_id = info.get("windowId")
+                if not window_id:
+                    return False
+                before = (await session.send(
+                    "Browser.getWindowBounds", {"windowId": window_id}
+                )).get("bounds", {})
+                bw = int(before.get("width") or 0)
+                bh = int(before.get("height") or 0)
+                # 置中座標：以主螢幕可用區（扣工作列）為基準，避免蓋住工作列。
+                # Qt 取不到時退回 1280x752（本機實測值）。
+                try:
+                    from PySide6.QtWidgets import QApplication
+
+                    app = QApplication.instance()
+                    g = app.primaryScreen().availableGeometry() if app else None
+                    if g is None:
+                        from PySide6.QtGui import QGuiApplication
+
+                        g = QGuiApplication.primaryScreen().availableGeometry()
+                    avail_w, avail_h = g.width(), g.height()
+                    origin_x, origin_y = g.x(), g.y()
+                except Exception:
+                    avail_w, avail_h, origin_x, origin_y = 1280, 752, 0, 0
+                width = min(LOGIN_WINDOW_WIDTH, avail_w - 40)
+                height = min(LOGIN_WINDOW_HEIGHT, avail_h - 40)
+                left = origin_x + max(0, (avail_w - width) // 2)
+                top = origin_y + max(0, (avail_h - height) // 2)
+                if abs(bw - width) <= 8 and abs(bh - height) <= 8:
+                    return True  # 已是目標尺寸（允許邊框誤差）
+                await session.send(
+                    "Browser.setWindowBounds",
+                    {
+                        "windowId": window_id,
+                        "bounds": {
+                            "left": left,
+                            "top": top,
+                            "width": width,
+                            "height": height,
+                            "windowState": "normal",
+                        },
+                    },
+                )
+                await asyncio.sleep(0.4)
+                after = (await session.send(
+                    "Browser.getWindowBounds", {"windowId": window_id}
+                )).get("bounds", {})
+                aw, ah = int(after.get("width") or 0), int(after.get("height") or 0)
+                logger.debug(f"登入視窗置中：{bw}x{bh} → {aw}x{ah}（目標 {width}x{height}）")
+                if abs(aw - width) <= 16 and abs(ah - height) <= 16:
+                    return True
+            except Exception as exc:
+                logger.debug(f"置中登入視窗失敗（第 {attempt + 1} 次）：{exc}")
+                await asyncio.sleep(0.3)
+        return False
+
 
     async def _fit_page_to_window(self, page) -> float:
         """確保登入頁所有元素都在視窗內；必要時自動縮小頁面縮放。
@@ -587,13 +673,13 @@ class BrowserManager:
             assert self._browser is not None
 
             state = self.accounts.load_state(account)
-            context = await self._browser.new_context(**self._context_kwargs(cfg, state))
+            context = await self._browser.new_context(**self._context_kwargs(cfg, state, headed=True))
             page = await context.new_page()
 
-            # 確保視窗最大化（--start-maximized 在部分環境可能無效）
-            maximized = await self._maximize_window(context, page)
-            if not maximized:
-                logger.debug("無法確認視窗已最大化，稍後會自動縮放頁面以完整顯示")
+            # 固定尺寸置中（--window-size 在部分環境可能無效，CDP 再確認一次）
+            centered = await self._center_login_window(context, page)
+            if not centered:
+                logger.debug("無法確認登入視窗已置中，稍後會自動縮放頁面以完整顯示")
 
             closed = asyncio.Event()
             page.on("close", lambda *_: closed.set())
@@ -617,11 +703,11 @@ class BrowserManager:
             await self._notify(on_stage, "opening", "正在開啟登入頁面…")
             entered = await self._enter_login_page(page)
 
-            # 3) 登入頁載入後「再次」確認視窗最大化。
+            # 3) 登入頁載入後「再次」確認視窗位置。
             #    Chromium 有時會在首次導航後把視窗恢復成建立時的尺寸，
-            #    因此導航前設定一次、導航後再驗證一次，確保使用者看到時已最大化。
+            #    因此導航前設定一次、導航後再驗證一次，確保使用者看到時已置中。
             if entered:
-                await self._maximize_window(context, page)
+                await self._center_login_window(context, page)
 
             # 3) 已經登入（沿用既有 session）→ 直接完成
             if not entered and await self.is_logged_in(page):

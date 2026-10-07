@@ -162,7 +162,7 @@ https://account.minimax.io/unified-login?login_redirect=%2Foauth2%2Fauthorize...
 | 等待按鈕渲染 | 必須 `wait_for_selector` 等 `sidebar-signed-out-login` 出現；`domcontentloaded` 時前端尚未 hydrate，直接找按鈕會失敗 |
 | 遮擋處理 | 點擊前先移除 `[aria-modal="true"]` / `div.bg-utility_overlay`（公告彈窗會攔截點擊） |
 | 失敗退路 | 一般 `click()` 失敗時改用 `dispatch_event("click")` |
-| 視窗尺寸（第一版修正） | 實測螢幕 1280×800、縮放 150%：舊版固定 `viewport=1440×900` → 需要 2160 實體像素而**被裁切**；改為顯示模式 `--start-maximized` + `no_viewport=True` |
+| 視窗尺寸（第二版修正，方案 B，2026-10-06） | 第一版 `--start-maximized`＋`no_viewport`＋CDP 最大化仍失效：`_context_kwargs` 看的是全域 `cfg.headless`（預設 True），登入拿到固定 `viewport=1440×900`，在本機工作區 1280×752 下高溢出 148px；且 `_maximize_window` 只對 `<640×480` 下發 maximized，普通小視窗被誤判「已填滿」。改為**固定視窗 1100×720 置中**：`--window-size=1100,720`＋CDP `setWindowBounds{normal, left, top}` 置於工作區中央＋登入專用 `LOGIN_VIEWPORT=1080×600`（`headed=True` 明確傳入，不再看全域設定）＋保留 `_fit_page_to_window` 縮放兜底。實測：視窗溢出 0px；登入頁（bottom=827）在 600 高度下觸發縮放至 70%，內容完整可見 ✅ |
 | **視窗最大化** | `--start-maximized` 在部分環境（多螢幕／DPI 縮放／由無主控台行程啟動）可能失效 → 以 **CDP `Browser.setWindowBounds {windowState: maximized}`** 明確設定並驗證 |
 | **頁面自動縮放** | 即使最大化，高 DPI 螢幕可用高度仍可能不足（1920×1200 @150% → 僅 665 CSS px）。登入頁就緒後量測 `scrollHeight` vs `innerHeight`，必要時注入 `html { zoom: N }`（下限 60%），確保最底部元素也在畫面內 |
 | **與簽到互斥** | 簽到（headless）與登入（headed）若交錯，會互相把瀏覽器重啟、打斷對方。加入長期操作鎖 `browser.operation`：整輪簽到與互動登入不可同時進行，登入會先顯示「正在等待目前的簽到作業結束…」 |
@@ -306,6 +306,40 @@ https://account.minimax.io/unified-login?login_redirect=%2Foauth2%2Fauthorize...
 5. `setMinimumSize(940, 620)`：視窗不可被縮到無法使用
 
 > 回歸測試：`tests/test_theme.py`（含主題色、Mica 關閉、最小尺寸三項斷言）
+
+### 後續深挖（2026-10-05）：三個獨立底色來源
+
+上面的修正方向是錯的——關 Mica＋硬塞不透明底色是在跟框架對著幹。
+用像素級診斷（offscreen＋`grab().toImage().pixel()`）逐層排除後，真正的底色來源有三個：
+
+| # | 底色來源 | 影響範圍 | 實測證據 |
+|---|---|---|---|
+| 1 | 視窗 `backgroundColor` | 導覽列／標題列（QSS 透明，會透出它） | Mica 開啟時為全透明 `#000000a0`；offscreen 無 DWM → 導覽列全黑 |
+| 2 | 內容容器 QWidget 的 `Window` 色彩角色 | 內容區（`SmoothScrollArea` 的 viewport **忽略** Fluent QSS） | viewport 調色盤同步了也沒用；把 `homeContainer` 設深色後內容區立刻變 `#2b2b2b` |
+| 3 | Qt `colorScheme` | 對話框等原生調色盤元件 | 系統深色時 App 選淺色仍顯示深色 |
+
+關鍵陷阱：
+* `setBackgroundColor()` 會啟動 120ms 動畫，而 `qconfig.themeChanged` 觸發的
+  `_updateBackgroundColor()` 會把它蓋回透明——必須覆寫 `_normalBackgroundColor`
+  讓框架自己的更新流程使用主題底色。
+* `setThemeColor()` 也會觸發全量 QSS 刷新——切換主題時只調 `setTheme`，
+  accent 未變時跳過 `setThemeColor`，否則刷新兩次造成閃爍。
+* offscreen 截圖中文字顯示為方框是缺中文字型所致，真機正常。
+
+最終修正（`MainWindow._apply_theme`＋`components.sync_page_palettes`）：
+1. 保留 Mica 開啟（官方原生機制），但覆寫 `_normalBackgroundColor` 用主題底色墊底
+2. `sync_page_palettes()`：把四個頁面容器／viewport 的 `Window`／`Base`／文字色同步為主題色
+3. `sync_qt_color_scheme()`：Qt colorScheme 跟隨 App 主題
+
+實測（offscreen 像素量測）：
+| 項目 | 淺色 | 深色 |
+|---|---|---|
+| 內容區 | `#fdfdfd` ✅ | `#2b2b2b` ✅ |
+| 導覽列 | `#f9f9f9` ✅ | `#202020` ✅ |
+| 標題列 | `#fdfdfd` ✅ | `#2d2d2d` ✅ |
+
+> 回歸測試：`tests/test_theme.py::test_apply_theme_syncs_window_and_page_backgrounds`、
+> `test_sync_page_palettes_matches_app_theme`
 
 ### 瀏覽器視窗「導航後被重置」的處理
 

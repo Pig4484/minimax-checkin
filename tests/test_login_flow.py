@@ -194,18 +194,19 @@ def test_capture_login_aborts_immediately_when_cancelled(monkeypatch, temp_root)
 
 
 def test_browser_has_window_helpers():
-    """視窗最大化與自動縮放的輔助方法必須存在（高 DPI 螢幕的關鍵修正）。"""
+    """登入視窗置中與自動縮放的輔助方法必須存在（方案 B：固定尺寸置中）。"""
     from app.core.browser import BrowserManager
 
-    assert hasattr(BrowserManager, "_maximize_window"), "缺少 CDP 強制最大化"
+    assert hasattr(BrowserManager, "_center_login_window"), "缺少 CDP 固定尺寸置中"
+    assert hasattr(BrowserManager, "_maximize_window"), "舊最大化方法保留（歷史相容）"
     assert hasattr(BrowserManager, "_fit_page_to_window"), "缺少頁面自動縮放"
     assert hasattr(BrowserManager, "_context_kwargs"), "缺少共用 context 選項"
 
 
 def test_headed_context_uses_no_viewport():
-    """顯示視窗模式必須使用 no_viewport，避免固定 viewport 在縮放螢幕上被裁切。"""
+    """登入（headed=True）必須用 LOGIN_VIEWPORT，不再受全域 cfg.headless 影響。"""
     from app.core.account import AccountManager
-    from app.core.browser import BrowserManager
+    from app.core.browser import LOGIN_VIEWPORT, BrowserManager
 
     browser = BrowserManager(AccountManager(encrypt=False))
 
@@ -213,20 +214,32 @@ def test_headed_context_uses_no_viewport():
         headless = False
         custom_user_agent = ""
 
-    headed = browser._context_kwargs(Cfg(), None)
-    assert headed.get("no_viewport") is True
-    assert "viewport" not in headed
+    headed = browser._context_kwargs(Cfg(), None, headed=True)
+    assert headed.get("viewport") == LOGIN_VIEWPORT
+    assert "no_viewport" not in headed
 
+    # 關鍵迴歸：全域 headless=True（預設）時，登入仍必須拿到登入專用 viewport
     Cfg.headless = True
+    login_kwargs = browser._context_kwargs(Cfg(), None, headed=True)
+    assert login_kwargs.get("viewport") == LOGIN_VIEWPORT, (
+        "登入被全域 headless 污染，拿到簽到用的 1440x900 → 底部會被工作列切掉"
+    )
+
     headless_kwargs = browser._context_kwargs(Cfg(), None)
     assert "viewport" in headless_kwargs
     assert "no_viewport" not in headless_kwargs
 
 
 def test_headed_launch_args_include_maximize():
-    from app.core.browser import HEADED_LAUNCH_ARGS, LAUNCH_ARGS
+    from app.core.browser import (
+        HEADED_LAUNCH_ARGS,
+        LAUNCH_ARGS,
+        LOGIN_WINDOW_HEIGHT,
+        LOGIN_WINDOW_WIDTH,
+    )
 
-    assert "--start-maximized" in HEADED_LAUNCH_ARGS
+    assert f"--window-size={LOGIN_WINDOW_WIDTH},{LOGIN_WINDOW_HEIGHT}" in HEADED_LAUNCH_ARGS
+    assert "--start-maximized" not in HEADED_LAUNCH_ARGS, "方案 B 改用固定尺寸置中，不再最大化"
     assert "--start-maximized" not in LAUNCH_ARGS, "無頭模式不需要最大化參數"
     assert "--disable-blink-features=AutomationControlled" in HEADED_LAUNCH_ARGS
 
