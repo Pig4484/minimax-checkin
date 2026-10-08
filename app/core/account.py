@@ -41,10 +41,11 @@ class Account:
 
     @property
     def display_name(self) -> str:
-        if self.alias:
-            return self.alias
+        # 已登入後優先顯示 MiniMax 用戶名；未登入才用別名／預設編號。
         if self.user_name:
             return self.user_name
+        if self.alias:
+            return self.alias
         return f"帳號 {self.id[:6]}"
 
     @property
@@ -99,6 +100,14 @@ class AccountManager:
 
     # --- 異動 ---------------------------------------------------------
     def add(self, alias: str = "") -> Account:
+        # 防撞名：自動生成別名時跳過已存在的名稱（舊資料撞名不在此處理）。
+        if not alias:
+            taken = {a.alias for a in self._accounts if a.alias}
+            n = len(self._accounts) + 1
+            alias = f"帳號 {n}"
+            while alias in taken:
+                n += 1
+                alias = f"帳號 {n}"
         account = Account(id=uuid.uuid4().hex, alias=alias, created_at=now_text())
         self._accounts.append(account)
         self.save()

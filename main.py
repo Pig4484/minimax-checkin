@@ -21,6 +21,7 @@ from app import paths
 from app.config import THEME_DARK, THEME_LIGHT, THEME_SYSTEM, AppConfig
 from app.constants import APP_ID, APP_NAME, APP_VERSION, ORG_NAME
 from app.core import diagnostics
+from app.single_instance import SingleInstanceWakeup, wake_existing
 from app.ui.icon import app_icon
 from app.ui.components import sync_qt_color_scheme
 from app.ui.main_window import MainWindow
@@ -81,7 +82,15 @@ def main() -> int:
             pass
 
     instance = acquire_single_instance() if cfg.single_instance else True
+    holder["instance"] = instance  # 留住 Mutex handle，避免 GC 提前釋放造成假多開
     if instance is None:
+        # 第二個實例：先嘗試喚醒舊主視窗，成功就靜默退出（不彈窗）。
+        # 只有連不上舊實例（殘留 Mutex／舊行程已死）才 fallback 彈舊提示。
+        try:
+            if wake_existing():
+                return 0
+        except Exception:
+            pass
         # 注意：此時日誌系統尚未初始化，且 pythonw 下沒有主控台，
         # 因此直接彈窗告知（而不是只 print／寫 log，否則使用者完全看不到）。
         try:
@@ -145,6 +154,16 @@ def main() -> int:
 
     window = MainWindow(cfg, worker)
     worker.start()
+
+    # 第一實例監聽喚醒通道：第二個行程雙擊捷徑時，把舊主視窗叫到前面。
+    # --minimized 開機自啟不受影響（開機時沒有舊實例，走正常啟動）。
+    if cfg.single_instance:
+        try:
+            wake_server = SingleInstanceWakeup(app)
+            wake_server.wakeRequested.connect(window.show_window)
+            holder["wake_server"] = wake_server
+        except Exception:
+            pass
 
     # --minimized 是開機自啓動／背景啟動專用（登錄檔命令自帶此旗標）。
     # 一般手動雙擊啟動一律顯示主視窗；「啟動時縮到系統匣」只影響開機自啓動那一次。

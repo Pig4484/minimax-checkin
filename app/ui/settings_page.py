@@ -359,6 +359,12 @@ class SettingsPage(SmoothScrollArea):
             "notify_relogin",
             "checkedChanged",
         )
+        self.notifyMinimizeHintCard = self._add(
+            group,
+            SwitchCard(FluentIcon.HOME, "縮到托盤時顯示提示", "關閉後按 X 縮到托盤不再彈出提示", self),
+            "notify_minimize_hint",
+            "checkedChanged",
+        )
 
     # --- 進階 ----------------------------------------------------------
     def _build_advanced(self) -> None:
@@ -599,6 +605,7 @@ class SettingsPage(SmoothScrollArea):
             "notify_success": self.notifySuccessCard,
             "notify_failure": self.notifyFailCard,
             "notify_relogin": self.notifyReloginCard,
+            "notify_minimize_hint": self.notifyMinimizeHintCard,
             "browser_channel": self.browserCard,
             "proxy": self.proxyCard,
             "custom_user_agent": self.userAgentCard,

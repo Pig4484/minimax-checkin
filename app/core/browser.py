@@ -28,6 +28,7 @@ from playwright.async_api import (
     BrowserContext,
     Error as PlaywrightError,
     Playwright,
+    TimeoutError as PlaywrightTimeout,
     async_playwright,
 )
 

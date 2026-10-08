@@ -58,6 +58,7 @@ class AppConfig:
     notify_success: bool = True
     notify_failure: bool = True
     notify_relogin: bool = True
+    notify_minimize_hint: bool = True  # 縮到托盤時是否顯示「仍在背景執行」提示
 
     # --- 進階 ---
     browser_channel: str = "chromium"

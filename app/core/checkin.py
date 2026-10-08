@@ -222,6 +222,7 @@ async def run_account_checkin(
         page = await context.new_page()
 
         status_payload: dict[str, Any] | None = None
+        page_closed = False
         try:
             async with page.expect_response(
                 lambda r: API_SIGNIN_STATUS in r.url, timeout=timeout_ms
@@ -231,17 +232,44 @@ async def run_account_checkin(
         except PlaywrightTimeout:
             logger.debug(f"[{tag}] 未取得 signin/status 回應")
         except PlaywrightError as exc:
-            logger.debug(f"[{tag}] signin/status 取得失敗：{exc}")
+            # 頁面被關閉（例如使用者手動關了簽到視窗）與真正的連線失敗要區分：
+            # 前者不代表登入失效，不應寫入 NEED_RELOGIN 誤導使用者重登。
+            if "has been closed" in str(exc):
+                page_closed = True
+                logger.debug(f"[{tag}] 頁面已關閉，中止本次簽到（不判定為登入失效）")
+            else:
+                logger.debug(f"[{tag}] signin/status 取得失敗：{exc}")
 
         # --- 登入狀態判定 -------------------------------------------------
-        try:
-            signed_out = (
-                LOGIN_HOST in page.url
-                or await page.locator(LOGIN_STATE_SIGNED_OUT).count() > 0
-            )
-        except PlaywrightError:
+        # 判定順序（避免誤判 NEED_RELOGIN）：
+        #   1. 有 signin/status 回應 → 以 API 為準（最可靠，不依賴 DOM 時序）。
+        #      回應裡的 today.status：2=今日可簽（必已登入）、3=已領取（必已登入）。
+        #   2. 無 API 回應 → 才用 DOM＋token 兜底（頁面被關閉時直接回 FAILED）。
+        today = selectors.today_entry(status_payload)
+        today_status = today.get("status") if today else None
+        api_says_logged_in = today_status in (DayStatus.AVAILABLE, DayStatus.CLAIMED)
+        if api_says_logged_in:
+            logger.debug(f"[{tag}] API 顯示已登入（today.status={today_status}），跳過 DOM 判定")
             signed_out = False
-        if signed_out or not await _has_token(page):
+            has_token = True
+        elif page_closed or status_payload is None:
+            # 連 API 回應都沒拿到（頁面被關／網路中斷）：無法判定登入狀態，
+            # 回 FAILED 而非 NEED_RELOGIN，避免明明能簽到卻叫使用者重登。
+            return CheckinOutcome(
+                RunStatus.FAILED,
+                message="未能取得簽到狀態（頁面被關閉或網路中斷），請再試一次",
+                detail={"url": page.url},
+            )
+        else:
+            try:
+                signed_out = (
+                    LOGIN_HOST in page.url
+                    or await page.locator(LOGIN_STATE_SIGNED_OUT).count() > 0
+                )
+            except PlaywrightError:
+                signed_out = False
+            has_token = await _has_token(page)
+        if not api_says_logged_in and (signed_out or not has_token):
             await diagnostics.capture_page(page, folder, "not_logged_in")
             diagnostics.write_json(folder, "status.json", status_payload or {})
             return CheckinOutcome(
@@ -254,8 +282,7 @@ async def run_account_checkin(
         await browser.update_state(account, context)
         diagnostics.write_json(folder, "status.json", status_payload or {})
 
-        today = selectors.today_entry(status_payload)
-        today_status = today.get("status") if today else None
+        # today / today_status 已在登入判定階段由 API 取出，這裡直接重用。
 
         # --- 今日已簽到 ---------------------------------------------------
         if today_status == DayStatus.CLAIMED:

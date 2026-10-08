@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from qfluentwidgets import (
@@ -16,7 +16,6 @@ from qfluentwidgets import (
     LineEdit,
     MessageBox,
     NavigationItemPosition,
-    StateToolTip,
     SystemTrayMenu,
     Theme,
     setTheme,
@@ -210,16 +209,14 @@ class MainWindow(FluentWindow):
             self.info_bar("發生錯誤", message, ok=False)
 
     def _on_login_state(self, payload: dict) -> None:
-        """登入流程各階段的提示（含開啟中的轉圈圈指示）。"""
+        """登入流程各階段的提示（綠色 InfoBar＋帳號卡轉圈圈，不再用藍色 StateToolTip）。"""
         state = str(payload.get("state", ""))
         message = str(payload.get("message", ""))
         account_id = str(payload.get("account_id", ""))
 
         if state in ("launching", "opening", "waiting_run", "fitting"):
-            self._show_login_progress(message or "正在開啟登入視窗…")
             self.accountPage.set_busy(account_id, True)
         elif state == "ready":
-            self._show_login_progress("登入頁面已就緒，請在瀏覽器視窗完成登入", done=True)
             self.info_bar(
                 "請完成登入",
                 "已為您開啟 MiniMax 登入頁面，請選擇 Google／Email 驗證碼／GitHub 完成登入。",
@@ -227,13 +224,11 @@ class MainWindow(FluentWindow):
                 duration=10000,
             )
         elif state == "success":
-            self._show_login_progress("登入成功", done=True)
             self.accountPage.set_busy(account_id, False)
             self.info_bar("登入成功", f"{payload.get('user_name', '')} 的登入狀態已儲存", ok=True)
             self.notify("登入成功", f"{payload.get('user_name', '')} 已完成登入")
             self.refresh_all()
         elif state == "failed":
-            self._show_login_progress(message or "登入未完成", done=True, failed=True)
             self.accountPage.set_busy(account_id, False)
             error_kind = str(payload.get("error", ""))
             title = {
@@ -252,28 +247,6 @@ class MainWindow(FluentWindow):
 
         if account_id:
             self.refresh_accounts()
-
-    def _show_login_progress(self, content: str, done: bool = False, failed: bool = False) -> None:
-        """顯示（或更新）開啟登入視窗的進度提示；`done=True` 時收合。
-
-        未完成時透過 StateToolTip 顯示轉圈圈，讓使用者知道程式正在動作。
-        """
-        tip = getattr(self, "_login_tip", None)
-        if tip is None:
-            tip = StateToolTip("開啟登入視窗", content, self)
-            self._login_tip = tip
-            tip.move(tip.getSuitablePos())
-            tip.show()
-            return
-        tip.setContent(content)
-        if done:
-            tip.setState(True)
-            tip.setContent(content + ("（失敗）" if failed else "（完成）"))
-            self._login_tip = None
-            QTimer.singleShot(4000, tip.close)
-        else:
-            tip.show()
-            tip.move(tip.getSuitablePos())
 
     def _notify_result(self, payload: dict) -> None:
         status = str(payload.get("status", ""))
@@ -317,7 +290,7 @@ class MainWindow(FluentWindow):
 
     def add_account(self) -> None:
         accounts = self.worker.accounts
-        account = accounts.add(alias=f"帳號 {len(accounts.accounts)}")
+        account = accounts.add()
         self.refresh_all()
         self.info_bar(
             "已新增帳號",
@@ -352,6 +325,12 @@ class MainWindow(FluentWindow):
         logger.info(f"{'啟用' if enabled else '停用'}帳號：{account_id[:6]}")
 
     def show_window(self) -> None:
+        # 自啟動 --minimized 時 hide() 得太早，主題尚未套用造成透明鬼影；
+        # 先補主題再顯示，確保從托盤還原時底色正確。
+        try:
+            self._apply_theme()
+        except Exception:
+            pass
         self.showNormal()
         self.activateWindow()
         self.raise_()
@@ -384,11 +363,40 @@ class MainWindow(FluentWindow):
         event.ignore()
         if self.cfg.close_to_tray:
             self.hide()
-            if not self._tray_hint_shown:
+            if not self._tray_hint_shown and self.cfg.notify_minimize_hint:
                 self._tray_hint_shown = True
-                self.notify("仍在背景執行", "程式已縮到系統匣，會依排程自動簽到。")
+                self.notify_minimize_hint()
         else:
             self.quit_app()
+
+    def notify_minimize_hint(self) -> None:
+        """縮到托盤時的「仍在背景執行」提示：QMessageBox＋「不再顯示」勾選框。
+
+        Windows 的托盤氣泡（QSystemTrayIcon.showMessage）不支援自訂按鈕，
+        所以用人性化的對話框承載「不再顯示」選項；勾選後寫入設定並持久化。
+        """
+        from PySide6.QtWidgets import QCheckBox
+
+        box = MessageBox("仍在背景執行", "程式已縮到系統匣，會依排程自動簽到。", self)
+        box.yesButton.setText("知道了")
+        box.cancelButton.hide()
+        hint = QCheckBox("不再顯示此提示", box)
+        try:
+            box.viewLayout.addWidget(hint)
+        except Exception:
+            pass
+        box.exec()
+        try:
+            if hint.isChecked() and self.cfg.notify_minimize_hint:
+                self.cfg.notify_minimize_hint = False
+                self.cfg.save()
+                try:
+                    self.settingsPage.reload(self.cfg)
+                except Exception:
+                    pass
+                logger.info("已關閉「縮到托盤時顯示提示」")
+        except Exception:
+            pass
 
     def _on_tray_activated(self, reason) -> None:
         if reason in (QSystemTrayIcon.DoubleClick, QSystemTrayIcon.Trigger):

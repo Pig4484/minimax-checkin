@@ -99,6 +99,15 @@ def test_move_reorders(temp_root):
     assert [a.display_name for a in manager.accounts] == ["B", "A"]
 
 
+def test_auto_alias_skips_taken(temp_root):
+    manager = AccountManager(encrypt=False)
+    manager.add()  # 帳號 1
+    manager.add("帳號 2")
+    third = manager.add()
+    assert third.alias == "帳號 3"
+    assert len({a.alias for a in manager.accounts}) == 3
+
+
 def test_corrupted_index_is_ignored(temp_root):
     index = temp_root / "accounts" / "index.json"
     index.parent.mkdir(parents=True, exist_ok=True)
