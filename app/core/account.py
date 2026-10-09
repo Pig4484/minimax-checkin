@@ -132,6 +132,27 @@ class AccountManager:
             self.save()
         return account
 
+    def rename(self, account_id: str, alias: str) -> tuple[bool, str]:
+        """重新命名帳號別名；撞名或空白時回傳 (False, 原因）。"""
+        account = self.get(account_id)
+        if account is None:
+            return False, "找不到帳號"
+        name = (alias or "").strip()
+        if not name:
+            return False, "別名不可為空白"
+        if len(name) > 24:
+            return False, "別名太長（最多 24 字）"
+        taken = {a.alias for a in self._accounts if a.id != account_id and a.alias}
+        if name in taken:
+            return False, f"「{name}」已被使用，請換一個名稱"
+        # 若與 MiniMax 用戶名相同會造成顯示混淆，一併擋下
+        others = {a.user_name for a in self._accounts if a.id != account_id and a.user_name}
+        if name in others:
+            return False, f"「{name}」與其他帳號的登入名稱相同，請換一個名稱"
+        account.alias = name
+        self.save()
+        return True, ""
+
     def move(self, account_id: str, offset: int) -> None:
         ids = [a.id for a in self._accounts]
         if account_id not in ids:

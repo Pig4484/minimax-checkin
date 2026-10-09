@@ -33,8 +33,10 @@ class AppConfig:
 
     # --- 一般 ---
     theme: str = THEME_DARK
+    language: str = "zh-TW"  # zh-TW / zh-CN / en（首次啟動跟隨系統語言）
     autostart: bool = False
-    start_minimized: bool = False
+    start_minimized: bool = False  # 僅開機自啓動時生效（--minimized）
+    minimize_on_manual_launch: bool = False  # 手動開啟時也縮到托盤（預設否）
     close_to_tray: bool = True
     single_instance: bool = True
     minimize_on_launch_login: bool = True
@@ -102,8 +104,12 @@ class AppConfig:
 
     # ------------------------------------------------------------------
     def normalize(self) -> None:
+        from app.i18n import LANGUAGE_CHOICES, LANG_ZH_TW
+
         if self.theme not in (THEME_SYSTEM, THEME_LIGHT, THEME_DARK):
             self.theme = THEME_DARK
+        if getattr(self, "language", None) not in LANGUAGE_CHOICES:
+            self.language = LANG_ZH_TW
         if self.browser_channel not in BROWSER_CHOICES:
             self.browser_channel = "chromium"
         if self.log_level not in LOG_LEVELS:

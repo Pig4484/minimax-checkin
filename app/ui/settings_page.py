@@ -149,6 +149,20 @@ class SettingsPage(SmoothScrollArea):
             "theme",
             "valueChanged",
         )
+        from app.i18n import LANGUAGE_CHOICES, LANGUAGE_LABELS
+
+        self.languageCard = self._add(
+            group,
+            ComboCard(
+                FluentIcon.GLOBE,
+                "介面語言",
+                [(LANGUAGE_LABELS[c], c) for c in LANGUAGE_CHOICES],
+                "切換後重啟程式生效",
+                self,
+            ),
+            "language",
+            "valueChanged",
+        )
         self.autostartCard = self._add(
             group,
             SwitchCard(FluentIcon.POWER_BUTTON, "開機自啓動", "登入 Windows 後自動在背景執行", self),
@@ -157,8 +171,14 @@ class SettingsPage(SmoothScrollArea):
         )
         self.startMinimizedCard = self._add(
             group,
-            SwitchCard(FluentIcon.MINIMIZE, "啟動時縮到系統匣", "僅開機自啓動時生效：不顯示主視窗；手動開啟一律顯示主視窗", self),
+            SwitchCard(FluentIcon.MINIMIZE, "啟動時縮到系統匣", "僅開機自啓動時生效：不顯示主視窗", self),
             "start_minimized",
+            "checkedChanged",
+        )
+        self.minimizeOnManualLaunchCard = self._add(
+            group,
+            SwitchCard(FluentIcon.HIDE, "手動開啟時也縮到托盤", "雙擊捷徑啟動也不顯示主視窗（預設關閉）", self),
+            "minimize_on_manual_launch",
             "checkedChanged",
         )
         self.closeToTrayCard = self._add(
@@ -588,8 +608,10 @@ class SettingsPage(SmoothScrollArea):
     def _bindings(self) -> dict[str, Any]:
         return {
             "theme": self.themeCard,
+            "language": self.languageCard,
             "autostart": self.autostartCard,
             "start_minimized": self.startMinimizedCard,
+            "minimize_on_manual_launch": self.minimizeOnManualLaunchCard,
             "close_to_tray": self.closeToTrayCard,
             "single_instance": self.singleInstanceCard,
             "jitter_minutes": self.jitterCard,

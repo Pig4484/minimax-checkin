@@ -319,6 +319,7 @@ class AccountCard(SimpleCardWidget):
     """帳號列：頭像、名稱、狀態、啟用開關、重新登入、刪除。"""
 
     reloginRequested = Signal(str)
+    renameRequested = Signal(str)
     deleteRequested = Signal(str)
     enabledChanged = Signal(str, bool)
 
@@ -361,6 +362,10 @@ class AccountCard(SimpleCardWidget):
         self.reloginButton = PushButton("重新登入", self, FluentIcon.SYNC)
         layout.addWidget(self.reloginButton)
 
+        self.renameButton = ToolButton(FluentIcon.EDIT, self)
+        self.renameButton.setToolTip("重新命名別名")
+        layout.addWidget(self.renameButton)
+
         self.deleteButton = TransparentToolButton(FluentIcon.DELETE, self)
         layout.addWidget(self.deleteButton)
 
@@ -375,6 +380,7 @@ class AccountCard(SimpleCardWidget):
             lambda checked: self.enabledChanged.emit(self.account_id, bool(checked))
         )
         self.reloginButton.clicked.connect(lambda: self.reloginRequested.emit(self.account_id))
+        self.renameButton.clicked.connect(lambda: self.renameRequested.emit(self.account_id))
         self.deleteButton.clicked.connect(lambda: self.deleteRequested.emit(self.account_id))
         self.update_data(data)
 
@@ -402,6 +408,7 @@ class AccountCard(SimpleCardWidget):
         """登入進行中：顯示轉圈圈並暫時禁用按鈕，避免重複觸發。"""
         self.busyIndicator.setVisible(bool(busy))
         self.reloginButton.setEnabled(not busy)
+        self.renameButton.setEnabled(not busy)
         self.enableSwitch.setEnabled(not busy)
         self.deleteButton.setEnabled(not busy)
         if busy:

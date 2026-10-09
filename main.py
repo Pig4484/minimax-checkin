@@ -72,6 +72,17 @@ def main() -> int:
     holder["app"] = app
 
     cfg = AppConfig.load()
+    # 首次啟動（設定檔不存在）時跟隨系統語言；之後以使用者於設定頁的選擇為準。
+    if not paths.config_file().exists():
+        from app.i18n import detect_system_language, set_language
+
+        cfg.language = detect_system_language()
+        set_language(cfg.language)
+        cfg.save()
+    else:
+        from app.i18n import set_language
+
+        set_language(cfg.language)
 
     # 早期版本使用 QLockFile 鎖檔，若有殘留會誤判成「已在執行」，直接清除
     stale_lock = paths.app_file()
@@ -166,8 +177,8 @@ def main() -> int:
             pass
 
     # --minimized 是開機自啓動／背景啟動專用（登錄檔命令自帶此旗標）。
-    # 一般手動雙擊啟動一律顯示主視窗；「啟動時縮到系統匣」只影響開機自啓動那一次。
-    if args.minimized:
+    # 手動雙擊預設顯示主視窗；若使用者另開「手動開啟時也縮到托盤」則同樣隱藏。
+    if args.minimized or cfg.minimize_on_manual_launch:
         window.hide()
     else:
         window.show()

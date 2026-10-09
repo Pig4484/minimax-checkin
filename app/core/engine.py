@@ -97,7 +97,9 @@ class CheckinEngine:
                     diag_folder=folder,
                     cancel=cancel,
                 )
-                # 無頭模式失敗時，改用顯示視窗再試一次（可降低被風控擋下的機率）
+                # 無頭模式失敗時，改用顯示視窗再試一次（可降低被風控擋下的機率）。
+                # 注意：用副本 cfg 重試，不動共用的 self.cfg.headless，
+                # 否則多帳號並行時會互相翻模式、打斷對方。
                 if (
                     self.cfg.headless
                     and self.cfg.fallback_headed
@@ -105,18 +107,17 @@ class CheckinEngine:
                     and (cancel is None or not cancel.is_set())
                 ):
                     logger.info(f"[{account.display_name}] 無頭模式未成功，改用顯示視窗重試")
-                    self.cfg.headless = False
-                    try:
-                        outcome = await run_account_checkin(
-                            self.accounts,
-                            self.browser,
-                            account,
-                            self.cfg,
-                            diag_folder=folder,
-                            cancel=cancel,
-                        )
-                    finally:
-                        self.cfg.headless = True
+                    import dataclasses
+
+                    retry_cfg = dataclasses.replace(self.cfg, headless=False)
+                    outcome = await run_account_checkin(
+                        self.accounts,
+                        self.browser,
+                        account,
+                        retry_cfg,
+                        diag_folder=folder,
+                        cancel=cancel,
+                    )
                 result = self._apply(account, outcome)
                 results.append(result)
                 self.emit("account_finished", result)

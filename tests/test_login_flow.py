@@ -298,3 +298,60 @@ class _FakeCfg:
     proxy = ""
     custom_user_agent = ""
     timeout_seconds = 30
+
+
+def test_capture_login_does_not_release_signin_gate(monkeypatch, temp_root):
+    """登入結束只放自己的 operation 鎖，不可放掉簽到手上的 gate。"""
+    import asyncio as aio
+
+    from app.core.account import AccountManager
+    from app.core.browser import BrowserManager
+
+    monkeypatch.setattr(
+        "app.core.browser.quick_reachability_check", lambda *a, **k: (False, "測試用：無法連線")
+    )
+    manager = AccountManager(encrypt=False)
+    account = manager.add("測試")
+    browser = BrowserManager(manager)
+
+    async def scenario():
+        await browser.gate.acquire()  # 模擬簽到進行中持有 gate
+        result = await browser.capture_login(account, _FakeCfg())
+        assert result.error == "network"
+        assert browser.gate.locked(), "登入不可釋放簽到的 gate 鎖"
+        assert not browser.operation.locked(), "登入自己的 operation 鎖必須釋放"
+        browser.gate.release()
+
+    aio.run(scenario())
+
+
+def test_fallback_headed_does_not_mutate_shared_cfg(monkeypatch, temp_root):
+    """無頭 fallback 必須用副本 cfg 重試，不可翻轉共用的 cfg.headless。"""
+    import asyncio as aio
+
+    from app.config import AppConfig
+    from app.core import engine as engine_module
+    from app.core.account import AccountManager
+    from app.core.checkin import CheckinOutcome
+    from app.core.engine import CheckinEngine
+    from app.core.state import RunStateStore
+    from app.constants import RunStatus
+
+    cfg = AppConfig()
+    cfg.headless = True
+    cfg.fallback_headed = True
+    accounts = AccountManager(encrypt=False)
+    account = accounts.add("測試")
+    accounts.save_state(account, {"cookies": [], "origins": []})
+
+    seen: list[bool] = []
+
+    async def fake_checkin(accounts, browser, account, cfg_arg, **kwargs):
+        seen.append(bool(cfg_arg.headless))
+        return CheckinOutcome(RunStatus.FAILED, message="測試用失敗")
+
+    monkeypatch.setattr(engine_module, "run_account_checkin", fake_checkin)
+    engine = CheckinEngine(cfg, accounts, object(), RunStateStore())
+    aio.run(engine.run("manual"))
+    assert cfg.headless is True, "共用 cfg.headless 不可被 fallback 翻轉"
+    assert seen == [True, False], f"首輪無頭、重試顯示視窗，實際 {seen}"

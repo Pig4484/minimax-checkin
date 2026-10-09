@@ -25,6 +25,7 @@ class AccountPage(SmoothScrollArea):
 
     addRequested = Signal()
     reloginRequested = Signal(str)
+    renameRequested = Signal(str)
     deleteRequested = Signal(str)
     enabledChanged = Signal(str, bool)
 
@@ -96,6 +97,7 @@ class AccountPage(SmoothScrollArea):
             if card is None:
                 card = AccountCard(row, self)
                 card.reloginRequested.connect(self.reloginRequested)
+                card.renameRequested.connect(self.renameRequested)
                 card.deleteRequested.connect(self.deleteRequested)
                 card.enabledChanged.connect(self.enabledChanged)
                 self._cards[account_id] = card

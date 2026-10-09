@@ -300,11 +300,19 @@ class AutomationWorker(QThread):
 
             env = os.environ.copy()
             env["PLAYWRIGHT_BROWSERS_PATH"] = str(target)
+            kwargs: dict[str, Any] = {
+                "env": env,
+                "stdout": asyncio.subprocess.PIPE,
+                "stderr": asyncio.subprocess.STDOUT,
+            }
+            if sys.platform == "win32":
+                # 打包版 console=False 下子行程仍可能閃出黑窗，強制隱藏。
+                kwargs["creationflags"] = getattr(
+                    asyncio.subprocess, "CREATE_NO_WINDOW", 0x08000000
+                )
             process = await asyncio.create_subprocess_exec(
                 *command,
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                **kwargs,
             )
             assert process.stdout is not None
             while True:

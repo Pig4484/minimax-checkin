@@ -26,6 +26,7 @@ from app import paths
 from app.config import THEME_DARK, THEME_LIGHT, THEME_SYSTEM, AppConfig
 from app.constants import APP_NAME, RUN_STATUS_TEXT, RunStatus
 from app.core import autostart
+from app.i18n import t
 from app.logger import logger
 from app.ui.account_page import AccountPage
 from app.ui.components import refresh_page_backgrounds, sync_page_palettes, sync_qt_color_scheme
@@ -84,10 +85,10 @@ class MainWindow(FluentWindow):
             return 1180, 780
 
     def _init_navigation(self) -> None:
-        self.addSubInterface(self.homePage, FIF.HOME, "總覽")
-        self.addSubInterface(self.accountPage, FIF.PEOPLE, "帳號")
-        self.addSubInterface(self.logPage, FIF.DOCUMENT, "紀錄")
-        self.addSubInterface(self.settingsPage, FIF.SETTING, "設定")
+        self.addSubInterface(self.homePage, FIF.HOME, t("nav.overview"))
+        self.addSubInterface(self.accountPage, FIF.PEOPLE, t("nav.accounts"))
+        self.addSubInterface(self.logPage, FIF.DOCUMENT, t("nav.logs"))
+        self.addSubInterface(self.settingsPage, FIF.SETTING, t("nav.settings"))
         try:
             self.navigationInterface.setExpandWidth(210)
             self.navigationInterface.expand(useAni=False)
@@ -97,10 +98,10 @@ class MainWindow(FluentWindow):
             self.navigationInterface.addItem(
                 routeKey="runNow",
                 icon=FIF.PLAY,
-                text="立即簽到",
+                text=t("nav.run_now"),
                 onClick=self.run_now,
                 position=NavigationItemPosition.BOTTOM,
-                tooltip="立即執行一次簽到",
+                tooltip=t("nav.run_now.tooltip"),
             )
         except Exception as exc:  # pragma: no cover
             logger.debug(f"導覽列項目建立失敗：{exc}")
@@ -108,7 +109,7 @@ class MainWindow(FluentWindow):
     def _init_title_bar(self) -> None:
         """在標題列加入「搜尋設定」框（Ghost Downloader 的招牌元素）。"""
         self.searchEdit = LineEdit(self.titleBar)
-        self.searchEdit.setPlaceholderText("搜尋設定")
+        self.searchEdit.setPlaceholderText(t("search.settings"))
         self.searchEdit.setClearButtonEnabled(True)
         self.searchEdit.setFixedWidth(320)
         self.searchEdit.textChanged.connect(self._on_search)
@@ -123,20 +124,20 @@ class MainWindow(FluentWindow):
 
     def _init_tray(self) -> None:
         self.trayIcon = QSystemTrayIcon(app_icon(), self)
-        self.trayIcon.setToolTip(f"{APP_NAME}｜每日自動簽到")
+        self.trayIcon.setToolTip(f"{APP_NAME}{t('tray.tooltip')}")
         self.trayMenu = SystemTrayMenu(parent=self)
-        self.trayMenu.addAction(Action(FIF.PLAY, "立即簽到", triggered=self.run_now, parent=self))
+        self.trayMenu.addAction(Action(FIF.PLAY, t("nav.run_now"), triggered=self.run_now, parent=self))
         self.trayMenu.addAction(
-            Action(FIF.HOME, "顯示主視窗", triggered=self.show_window, parent=self)
+            Action(FIF.HOME, t("tray.show"), triggered=self.show_window, parent=self)
         )
         self.trayMenu.addAction(
-            Action(FIF.HISTORY, "今日結果", triggered=self.show_results, parent=self)
+            Action(FIF.HISTORY, t("tray.results"), triggered=self.show_results, parent=self)
         )
         self.trayMenu.addAction(
-            Action(FIF.FOLDER, "開啟資料目錄", triggered=self.open_data_dir, parent=self)
+            Action(FIF.FOLDER, t("tray.open_data"), triggered=self.open_data_dir, parent=self)
         )
         self.trayMenu.addSeparator()
-        self.trayMenu.addAction(Action(FIF.CLOSE, "結束", triggered=self.quit_app, parent=self))
+        self.trayMenu.addAction(Action(FIF.CLOSE, t("tray.quit"), triggered=self.quit_app, parent=self))
         self.trayIcon.setContextMenu(self.trayMenu)
         self.trayIcon.activated.connect(self._on_tray_activated)
         self.trayIcon.show()
@@ -149,6 +150,7 @@ class MainWindow(FluentWindow):
         self.homePage.probeRequested.connect(lambda: self.worker.request_probe(None))
         self.accountPage.addRequested.connect(self.add_account)
         self.accountPage.reloginRequested.connect(self.worker.request_login)
+        self.accountPage.renameRequested.connect(self.rename_account)
         self.accountPage.deleteRequested.connect(self.delete_account)
         self.accountPage.enabledChanged.connect(self.set_account_enabled)
 
@@ -299,6 +301,32 @@ class MainWindow(FluentWindow):
         )
         self.worker.request_login(account.id)
 
+    def rename_account(self, account_id: str) -> None:
+        from qfluentwidgets import LineEdit
+
+        account = self.worker.accounts.get(account_id)
+        if account is None:
+            return
+        box = MessageBox("重新命名帳號", "別名用於區分多個帳號（不可重複，最多 24 字）。", self)
+        edit = LineEdit(box)
+        edit.setText(account.alias)
+        edit.setPlaceholderText("例如：主力帳號")
+        edit.setClearButtonEnabled(True)
+        try:
+            box.viewLayout.addWidget(edit)
+        except Exception:
+            pass
+        box.yesButton.setText("確定")
+        box.cancelButton.setText("取消")
+        if not box.exec():
+            return
+        ok, reason = self.worker.accounts.rename(account_id, edit.text())
+        if not ok:
+            self.info_bar("重新命名失敗", reason, ok=False)
+            return
+        self.refresh_all()
+        self.info_bar("已重新命名", account.alias)
+
     def delete_account(self, account_id: str) -> None:
         account = self.worker.accounts.get(account_id)
         if account is None:
@@ -377,10 +405,10 @@ class MainWindow(FluentWindow):
         """
         from PySide6.QtWidgets import QCheckBox
 
-        box = MessageBox("仍在背景執行", "程式已縮到系統匣，會依排程自動簽到。", self)
-        box.yesButton.setText("知道了")
+        box = MessageBox(t("tray.still_running.title"), t("tray.still_running.body"), self)
+        box.yesButton.setText(t("tray.still_running.ok"))
         box.cancelButton.hide()
-        hint = QCheckBox("不再顯示此提示", box)
+        hint = QCheckBox(t("tray.still_running.never"), box)
         try:
             box.viewLayout.addWidget(hint)
         except Exception:
@@ -423,6 +451,11 @@ class MainWindow(FluentWindow):
         self.cfg.save()
         if key == "theme":
             self._apply_theme()
+        elif key == "language":
+            from app.i18n import set_language
+
+            set_language(str(value))
+            self.info_bar("語言已切換", "重啟程式後生效", duration=8000)
         elif key == "autostart":
             if not autostart.apply(bool(value)):
                 self.info_bar("設定失敗", "無法寫入開機自啓動登錄檔（Windows 登錄檔權限問題）", ok=False)

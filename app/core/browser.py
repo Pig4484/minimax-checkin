@@ -661,6 +661,7 @@ class BrowserManager:
         if self.operation.locked():
             await self._notify(on_stage, "waiting_run", "正在等待目前的簽到作業結束…")
         await self.operation.acquire()
+        operation_acquired = True
 
         context: BrowserContext | None = None
         try:
@@ -759,10 +760,10 @@ class BrowserManager:
                     await context.close()
                 except Exception:
                     pass
-            if self.operation.locked():
+            # 只放自己拿的 operation 鎖；gate 是簽到流程的，不在此釋放，
+            # 否則登入結束會提前放掉簽到手上的 gate，造成 headed/headless 互搶。
+            if operation_acquired and self.operation.locked():
                 self.operation.release()
-            if self.gate.locked():
-                self.gate.release()
 
     # ------------------------------------------------------------------
     @staticmethod
