@@ -10,6 +10,7 @@ from typing import Any
 
 from app import paths
 from app.core import crypto
+from app.i18n import t
 
 
 def now_text() -> str:
@@ -136,19 +137,19 @@ class AccountManager:
         """重新命名帳號別名；撞名或空白時回傳 (False, 原因）。"""
         account = self.get(account_id)
         if account is None:
-            return False, "找不到帳號"
+            return False, t("account.rename.missing")
         name = (alias or "").strip()
         if not name:
-            return False, "別名不可為空白"
+            return False, t("account.rename.blank")
         if len(name) > 24:
-            return False, "別名太長（最多 24 字）"
+            return False, t("account.rename.long")
         taken = {a.alias for a in self._accounts if a.id != account_id and a.alias}
         if name in taken:
-            return False, f"「{name}」已被使用，請換一個名稱"
+            return False, t("account.rename.taken", name=name)
         # 若與 MiniMax 用戶名相同會造成顯示混淆，一併擋下
         others = {a.user_name for a in self._accounts if a.id != account_id and a.user_name}
         if name in others:
-            return False, f"「{name}」與其他帳號的登入名稱相同，請換一個名稱"
+            return False, t("account.rename.same_login", name=name)
         account.alias = name
         self.save()
         return True, ""

@@ -85,11 +85,19 @@ class RunStatus(str, Enum):
 
 
 RUN_STATUS_TEXT = {
-    RunStatus.SUCCESS: "簽到成功",
-    RunStatus.ALREADY: "今日已簽到",
-    RunStatus.NEED_RELOGIN: "需要重新登入",
-    RunStatus.RATE_LIMITED: "被限流/風控",
-    RunStatus.DRIFT: "找不到簽到介面",
-    RunStatus.FAILED: "簽到失敗",
-    RunStatus.SKIPPED: "已略過",
+    RunStatus.SUCCESS: "runstatus.success",
+    RunStatus.ALREADY: "runstatus.already",
+    RunStatus.NEED_RELOGIN: "runstatus.relogin",
+    RunStatus.RATE_LIMITED: "runstatus.ratelimit",
+    RunStatus.DRIFT: "runstatus.drift",
+    RunStatus.FAILED: "runstatus.failed",
+    RunStatus.SKIPPED: "runstatus.skipped",
 }
+
+
+def run_status_text(status: RunStatus) -> str:
+    """執行狀態顯示文字（執行時查表，跟隨目前語言）。"""
+    from app.i18n import t
+
+    key = RUN_STATUS_TEXT.get(status, "runstatus.unknown")
+    return t(key)

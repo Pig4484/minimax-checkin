@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime
 
 from app.config import AppConfig
-from app.constants import RunStatus
+from app.constants import RunStatus, run_status_text
 from app.core.account import AccountManager, today_text
 from app.core.checkin import CheckinOutcome
 from app.core.engine import CheckinEngine
@@ -32,7 +32,7 @@ def test_success_records_points_and_date(temp_root):
 
     assert row["status"] == "success"
     assert row["ok"] is True
-    assert row["status_text"] == "簽到成功"
+    assert row["status_text"] == run_status_text(RunStatus.SUCCESS)
     assert account.last_checkin_date == today_text()
     assert account.total_points == 800
     assert account.last_points == 800

@@ -61,6 +61,8 @@ DisableWelcomePage=no
 SetupLogging=yes
 
 [Languages]
+; 安裝精靈語言：目前僅英文（可攜版 Inno 缺中文 .isl；待官方語言包補齊後再加回
+; traditionalchinese / chinesesimplified 三語宣告，跟隨系統語言）。
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]

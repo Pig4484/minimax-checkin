@@ -22,6 +22,8 @@ from qfluentwidgets import (
     ToolButton,
 )
 
+from app.i18n import t
+
 # 狀態顏色（RGB）——深色主題下也清楚可辨
 COLOR_SUCCESS = (34, 197, 94)
 COLOR_FAIL = (239, 68, 68)
@@ -346,7 +348,7 @@ class AccountCard(SimpleCardWidget):
         text_box.addWidget(self.subLabel)
         layout.addLayout(text_box)
 
-        self.statusPill = pill("未登入", COLOR_MUTED)
+        self.statusPill = pill(t("accounts.card.todo"), COLOR_MUTED)
         layout.addWidget(self.statusPill)
         layout.addStretch(1)
 
@@ -355,15 +357,15 @@ class AccountCard(SimpleCardWidget):
         layout.addWidget(self.messageLabel)
 
         self.enableSwitch = SwitchButton(self)
-        self.enableSwitch.setOnText("啟用")
-        self.enableSwitch.setOffText("停用")
+        self.enableSwitch.setOnText(t("accounts.card.on"))
+        self.enableSwitch.setOffText(t("accounts.card.off"))
         layout.addWidget(self.enableSwitch)
 
-        self.reloginButton = PushButton("重新登入", self, FluentIcon.SYNC)
+        self.reloginButton = PushButton(t("accounts.card.relogin"), self, FluentIcon.SYNC)
         layout.addWidget(self.reloginButton)
 
         self.renameButton = ToolButton(FluentIcon.EDIT, self)
-        self.renameButton.setToolTip("重新命名別名")
+        self.renameButton.setToolTip(t("accounts.card.rename"))
         layout.addWidget(self.renameButton)
 
         self.deleteButton = TransparentToolButton(FluentIcon.DELETE, self)
@@ -390,7 +392,7 @@ class AccountCard(SimpleCardWidget):
         self.subLabel.setText(str(data.get("sub", "")))
         self.avatarLabel.setPixmap(avatar_pixmap(name, 44))
         status = str(data.get("status", "")) or "idle"
-        self.statusPill.setText(str(data.get("status_text", "待簽到")))
+        self.statusPill.setText(str(data.get("status_text", t("accounts.card.todo"))))
         rgb = STATUS_COLORS.get(status, COLOR_MUTED)
         self.statusPill.setStyleSheet(
             "QLabel{"
@@ -412,8 +414,8 @@ class AccountCard(SimpleCardWidget):
         self.enableSwitch.setEnabled(not busy)
         self.deleteButton.setEnabled(not busy)
         if busy:
-            self.reloginButton.setText("登入中")
-            self.statusPill.setText("開啟登入中…")
+            self.reloginButton.setText(t("accounts.card.logging_in"))
+            self.statusPill.setText(t("accounts.card.opening"))
             rgb = COLOR_INFO
             self.statusPill.setStyleSheet(
                 "QLabel{"
@@ -422,7 +424,7 @@ class AccountCard(SimpleCardWidget):
                 "border-radius: 9px; padding: 2px 10px; font-size: 12px;}"
             )
         else:
-            self.reloginButton.setText("重新登入")
+            self.reloginButton.setText(t("accounts.card.relogin"))
 
 
 class ResultCard(SimpleCardWidget):
@@ -459,7 +461,7 @@ class ResultCard(SimpleCardWidget):
         name = str(data.get("alias", ""))
         self.nameLabel.setText(name)
         self.avatarLabel.setPixmap(avatar_pixmap(name, 36))
-        self.timeLabel.setText(str(data.get("time", "")) or "尚未執行")
+        self.timeLabel.setText(str(data.get("time", "")) or t("result.not_run"))
         status = str(data.get("status", "idle"))
         rgb = STATUS_COLORS.get(status, COLOR_MUTED)
         self.statusPill.setText(str(data.get("status_text", "")))
@@ -470,7 +472,7 @@ class ResultCard(SimpleCardWidget):
             "border-radius: 9px; padding: 2px 10px; font-size: 12px;}"
         )
         points = int(data.get("points") or 0)
-        self.pointsLabel.setText(f"+{points} 點" if points else "")
+        self.pointsLabel.setText(t("result.points", points=points) if points else "")
         self.setToolTip(str(data.get("message", "")))
 
 

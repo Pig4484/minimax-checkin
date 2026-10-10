@@ -17,6 +17,7 @@ from qfluentwidgets import (
     SubtitleLabel,
 )
 
+from app.i18n import t
 from app.ui.components import AccountCard, make_background_transparent
 
 
@@ -49,15 +50,15 @@ class AccountPage(SmoothScrollArea):
         header = QHBoxLayout()
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
-        title_box.addWidget(SubtitleLabel("帳號管理", self))
+        title_box.addWidget(SubtitleLabel(t("accounts.title"), self))
         title_box.addWidget(
             CaptionLabel(
-                "每個帳號使用獨立的瀏覽器 session（cookie 互相隔離），只需登入一次。", self
+                t("accounts.subtitle"), self
             )
         )
         header.addLayout(title_box)
         header.addStretch(1)
-        self.addButton = PrimaryPushButton("新增帳號", self, FluentIcon.ADD)
+        self.addButton = PrimaryPushButton(t("accounts.add"), self, FluentIcon.ADD)
         self.addButton.setFixedWidth(140)
         self.addButton.clicked.connect(self.addRequested)
         header.addWidget(self.addButton)
@@ -68,11 +69,10 @@ class AccountPage(SmoothScrollArea):
         hint_layout = QVBoxLayout(self.hintCard)
         hint_layout.setContentsMargins(20, 12, 20, 12)
         hint_layout.setSpacing(2)
-        hint_layout.addWidget(StrongBodyLabel("如何新增帳號？", self.hintCard))
+        hint_layout.addWidget(StrongBodyLabel(t("accounts.how.title"), self.hintCard))
         hint_layout.addWidget(
             CaptionLabel(
-                "按「新增帳號」後會開啟瀏覽器視窗，請在該視窗完成登入"
-                "（Google／Email 驗證碼／GitHub），登入成功後程式會自動儲存 session 並關閉視窗。",
+                t("accounts.how.body"),
                 self.hintCard,
             )
         )
@@ -82,7 +82,7 @@ class AccountPage(SmoothScrollArea):
         self.listLayout.setSpacing(10)
         self.vBox.addLayout(self.listLayout)
 
-        self.emptyLabel = CaptionLabel("目前沒有帳號。", self)
+        self.emptyLabel = CaptionLabel(t("accounts.empty"), self)
         self.vBox.addWidget(self.emptyLabel)
         self.vBox.addStretch(1)
 

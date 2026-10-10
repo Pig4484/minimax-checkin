@@ -21,6 +21,7 @@ from app import paths
 from app.config import THEME_DARK, THEME_LIGHT, THEME_SYSTEM, AppConfig
 from app.constants import APP_ID, APP_NAME, APP_VERSION, ORG_NAME
 from app.core import diagnostics
+from app.i18n import t
 from app.single_instance import SingleInstanceWakeup, wake_existing
 from app.ui.icon import app_icon
 from app.ui.components import sync_qt_color_scheme
@@ -110,8 +111,8 @@ def main() -> int:
             box = QMessageBox()
             box.setIcon(QMessageBox.Information)
             box.setWindowTitle(APP_NAME)
-            box.setText(f"{APP_NAME} 已在執行中。")
-            box.setInformativeText("程式已縮到系統匣（工作列右下角 ^ 圖示區），雙擊托盤圖示即可叫回主視窗。")
+            box.setText(t("main.single_running", app=APP_NAME))
+            box.setInformativeText(t("main.single_hint"))
             box.exec()
         except Exception:
             pass
@@ -138,10 +139,10 @@ def main() -> int:
 
             box = QMessageBox()
             box.setIcon(QMessageBox.Critical)
-            box.setWindowTitle(f"{APP_NAME} — 發生錯誤")
-            box.setText("程式發生未預期錯誤。")
+            box.setWindowTitle(t("main.crash.title", app=APP_NAME))
+            box.setText(t("main.crash.body"))
             box.setInformativeText(
-                f"{message}\n\n詳細記錄：{log_path or '（無法寫入記錄檔）'}"
+                t("main.crash.detail", message=message, log=log_path or t("main.crash.nolog"))
             )
             box.exec()
         except Exception:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable
 
-from app.constants import RUN_STATUS_TEXT, SELECTOR_PACK_VERSION, RunStatus
+from app.constants import SELECTOR_PACK_VERSION, RunStatus, run_status_text
 from app.core import diagnostics
 from app.core.account import Account, AccountManager, now_text, today_text
 from app.core.checkin import CheckinOutcome, run_account_checkin
@@ -173,7 +173,7 @@ class CheckinEngine:
             "account_id": account.id,
             "alias": account.display_name,
             "status": outcome.status.value,
-            "status_text": RUN_STATUS_TEXT.get(outcome.status, outcome.status.value),
+            "status_text": run_status_text(outcome.status),
             "ok": outcome.ok,
             "points": outcome.points,
             "day_no": outcome.day_no,

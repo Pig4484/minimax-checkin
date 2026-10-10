@@ -18,10 +18,18 @@ THEME_DARK = "dark"
 
 BROWSER_CHOICES = ("chromium", "chrome", "msedge")
 BROWSER_LABELS = {
-    "chromium": "內建 Chromium（免安裝）",
-    "chrome": "系統 Google Chrome",
-    "msedge": "系統 Microsoft Edge",
+    "chromium": "config.browser.chromium",
+    "chrome": "config.browser.chrome",
+    "msedge": "config.browser.msedge",
 }
+
+
+def browser_label(name: str) -> str:
+    """瀏覽器下拉選項顯示名稱（執行時查表，跟隨目前語言）。"""
+    from app.i18n import t
+
+    key = BROWSER_LABELS.get(name)
+    return t(key) if key else name
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
 
 
@@ -39,7 +47,6 @@ class AppConfig:
     minimize_on_manual_launch: bool = False  # 手動開啟時也縮到托盤（預設否）
     close_to_tray: bool = True
     single_instance: bool = True
-    minimize_on_launch_login: bool = True
 
     # --- 簽到 ---
     daily_time: str = "09:00"            # 每日執行時間 HH:MM

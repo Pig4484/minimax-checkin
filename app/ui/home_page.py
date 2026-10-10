@@ -18,6 +18,7 @@ from qfluentwidgets import (
 )
 
 from app.constants import APP_VERSION, SELECTOR_PACK_VERSION
+from app.i18n import t
 from app.ui.components import (
     COLOR_INFO,
     COLOR_MUTED,
@@ -28,13 +29,7 @@ from app.ui.components import (
     pill,
 )
 
-STATUS_TEXT = {
-    "running": "簽到中…",
-    "ok": "今日已完成",
-    "partial": "部分帳號未完成",
-    "fail": "今日未完成",
-    "idle": "等待排程",
-}
+STATUS_KEYS = ("running", "ok", "partial", "fail", "idle")
 
 
 class HomePage(SmoothScrollArea):
@@ -74,21 +69,21 @@ class HomePage(SmoothScrollArea):
         header.setSpacing(12)
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
-        self.titleLabel = SubtitleLabel("簽到總覽", self)
+        self.titleLabel = SubtitleLabel(t("home.title"), self)
         self.subtitleLabel = CaptionLabel(
-            f"版本 {APP_VERSION}｜選擇器包 v{SELECTOR_PACK_VERSION}", self
+            t("home.subtitle", version=APP_VERSION, pack=SELECTOR_PACK_VERSION), self
         )
         title_box.addWidget(self.titleLabel)
         title_box.addWidget(self.subtitleLabel)
         header.addLayout(title_box)
         header.addStretch(1)
 
-        self.statusPill = pill("等待排程", COLOR_MUTED)
+        self.statusPill = pill(t("home.status.idle"), COLOR_MUTED)
         header.addWidget(self.statusPill)
 
-        self.runButton = PrimaryPushButton("立即簽到", self, FluentIcon.PLAY)
+        self.runButton = PrimaryPushButton(t("nav.run_now"), self, FluentIcon.PLAY)
         self.runButton.setFixedWidth(140)
-        self.cancelButton = PushButton("取消", self, FluentIcon.CANCEL)
+        self.cancelButton = PushButton(t("home.cancel"), self, FluentIcon.CANCEL)
         self.cancelButton.setEnabled(False)
         header.addWidget(self.runButton)
         header.addWidget(self.cancelButton)
@@ -103,10 +98,10 @@ class HomePage(SmoothScrollArea):
     def _build_stats(self) -> None:
         row = QHBoxLayout()
         row.setSpacing(16)
-        self.todayCard = StatCard("今日進度", "0 / 0", self)
-        self.pointsCard = StatCard("今日獲得點數", "0", self)
-        self.totalCard = StatCard("累計點數", "0", self)
-        self.nextCard = StatCard("下次自動簽到", "-", self)
+        self.todayCard = StatCard(t("home.stat.today"), "0 / 0", self)
+        self.pointsCard = StatCard(t("home.stat.points"), "0", self)
+        self.totalCard = StatCard(t("home.stat.total"), "0", self)
+        self.nextCard = StatCard(t("home.stat.next"), "-", self)
         for card in (self.todayCard, self.pointsCard, self.totalCard, self.nextCard):
             row.addWidget(card, 1)
         self.vBox.addLayout(row)
@@ -119,28 +114,28 @@ class HomePage(SmoothScrollArea):
         layout.setSpacing(12)
         text_box = QVBoxLayout()
         text_box.setSpacing(2)
-        text_box.addWidget(StrongBodyLabel("偵測到 MiniMax 頁面可能已改版", self.warningCard))
+        text_box.addWidget(StrongBodyLabel(t("home.drift.title"), self.warningCard))
         text_box.addWidget(
             CaptionLabel(
-                "連續多次找不到簽到介面，應用版本可能已過期，請重新掃描頁面以更新選擇器。",
+                t("home.drift.body"),
                 self.warningCard,
             )
         )
         layout.addLayout(text_box)
         layout.addStretch(1)
-        self.probeButton = PushButton("重新掃描頁面", self.warningCard, FluentIcon.SEARCH)
+        self.probeButton = PushButton(t("home.drift.rescan"), self.warningCard, FluentIcon.SEARCH)
         self.probeButton.clicked.connect(self.probeRequested)
         layout.addWidget(self.probeButton)
         self.warningCard.setVisible(False)
         self.vBox.addWidget(self.warningCard)
 
     def _build_results(self) -> None:
-        self.resultsTitle = StrongBodyLabel("今日結果", self)
+        self.resultsTitle = StrongBodyLabel(t("home.results.title"), self)
         self.vBox.addWidget(self.resultsTitle)
         self.resultsLayout = QVBoxLayout()
         self.resultsLayout.setSpacing(10)
         self.vBox.addLayout(self.resultsLayout)
-        self.emptyLabel = CaptionLabel("尚未新增帳號，請到「帳號」頁面新增並登入。", self)
+        self.emptyLabel = CaptionLabel(t("home.results.empty"), self)
         self.vBox.addWidget(self.emptyLabel)
 
     # ------------------------------------------------------------------
@@ -168,7 +163,8 @@ class HomePage(SmoothScrollArea):
             "fail": (239, 68, 68),
             "idle": COLOR_MUTED,
         }.get(key, COLOR_MUTED)
-        self.statusPill.setText(STATUS_TEXT.get(key, key))
+        key = key if key in STATUS_KEYS else "idle"
+        self.statusPill.setText(t(f"home.status.{key}"))
         self.statusPill.setStyleSheet(
             "QLabel{"
             f"color: rgb({rgb[0]},{rgb[1]},{rgb[2]});"

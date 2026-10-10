@@ -12,6 +12,7 @@ from typing import Any, Callable
 from app.core.account import AccountManager
 from app.core.engine import CheckinEngine
 from app.core.state import RunStateStore
+from app.i18n import t
 from app.logger import logger
 
 TIME_FORMAT = "%Y-%m-%d %H:%M"
@@ -71,12 +72,12 @@ class Scheduler:
         target = self.next_run_at()
         delta = target - datetime.now()
         if delta.total_seconds() < 60:
-            return "即將執行"
+            return t("scheduler.soon")
         hours, remainder = divmod(int(delta.total_seconds()), 3600)
         minutes = remainder // 60
         if hours:
-            return f"約 {hours} 小時 {minutes} 分後"
-        return f"約 {minutes} 分後"
+            return t("scheduler.hours", hours=hours, minutes=minutes)
+        return t("scheduler.minutes", minutes=minutes)
 
     # --- 生命週期 ------------------------------------------------------
     def start(self) -> None:

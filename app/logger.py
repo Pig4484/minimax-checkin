@@ -20,33 +20,6 @@ _FORMAT = "{level}|{time:HH:mm:ss}|{message}"
 _configured = False
 
 
-def setup(level: str = "INFO", keep_days: int = 30, gui_sink: Callable[[str], None] | None = None):
-    """初始化 loguru；重複呼叫只會更新 sink。"""
-    global _configured
-    logger.remove()
-    logger.add(
-        sys.stderr,
-        level=level,
-        format="<green>{time:HH:mm:ss}</green> | <level>{level: <7}</level> | {message}",
-        colorize=True,
-    )
-    logger.add(
-        paths.logs_dir() / "app_{time:YYYYMMDD}.log",
-        level="DEBUG",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <7} | {name}:{line} | {message}",
-        rotation="00:00",
-        retention=f"{max(1, int(keep_days))} days",
-        encoding="utf-8",
-        enqueue=True,
-        backtrace=False,
-        diagnose=False,
-    )
-    if gui_sink is not None:
-        logger.add(gui_sink, level="DEBUG", format=_FORMAT)
-    _configured = True
-    return logger
-
-
 def enable_utf8_console() -> None:
     """讓命令列工具的輸出（含重導向）使用 UTF-8，避免 Windows 主控台中文亂碼。"""
     for stream in (sys.stdout, sys.stderr):

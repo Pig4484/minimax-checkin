@@ -41,6 +41,7 @@ from app.constants import (
     USER_AGENT,
 )
 from app.core.account import Account, AccountManager
+from app.i18n import t
 from app.logger import logger
 
 LAUNCH_ARGS = [
@@ -76,11 +77,17 @@ LOGIN_TIMEOUT_SECONDS = 300
 MIN_ZOOM = 0.65
 
 CHANNEL_LABELS = {
-    "chromium": "內建 Chromium",
-    "chrome": "系統 Google Chrome",
-    "msedge": "系統 Microsoft Edge",
+    "chromium": "browser.channel.chromium",
+    "chrome": "browser.channel.chrome",
+    "msedge": "browser.channel.msedge",
 }
 _CHANNEL_ORDER = ("chromium", "chrome", "msedge")
+
+
+def channel_label(name: str) -> str:
+    """瀏覽器通道顯示名稱（執行時查表，跟隨目前語言）。"""
+    key = CHANNEL_LABELS.get(name)
+    return t(key) if key else name
 
 
 class BrowserLaunchError(RuntimeError):
@@ -115,16 +122,16 @@ def classify_navigation_error(exc: Exception) -> tuple[str, str]:
         "err_name_resolution_failed",
     )
     if any(code in lowered for code in network_codes):
-        return "network", "無法連線到 MiniMax：請檢查網路連線（或防火牆／VPN 是否阻擋）"
+        return "network", t("login.net.network")
     if "err_proxy" in lowered or "proxy" in lowered:
-        return "proxy", "代理伺服器連線失敗：請檢查「設定 → 進階 → 代理伺服器」"
+        return "proxy", t("login.net.proxy")
     if "err_ssl" in lowered or "certificate" in lowered or "tls" in lowered:
-        return "ssl", "TLS／憑證錯誤：可能是網路環境或代理伺服器攔截了連線"
+        return "ssl", t("login.net.ssl")
     if "err_timed_out" in lowered or "timeout" in lowered:
-        return "timeout", "連線 MiniMax 逾時：網路過慢或被阻擋"
+        return "timeout", t("login.net.timeout")
     if "err_aborted" in lowered or "err_blocked" in lowered:
-        return "blocked", "連線被中斷或阻擋：請檢查防火牆／防毒軟體設定"
-    return "unknown", f"無法載入網頁：{first_line or '未知錯誤'}"
+        return "blocked", t("login.net.blocked")
+    return "unknown", t("login.net.unknown", detail=first_line or t("login.net.unknown_detail"))
 
 
 def quick_reachability_check(host: str = "agent.minimax.io", timeout: float = 6.0) -> tuple[bool, str]:
@@ -133,11 +140,11 @@ def quick_reachability_check(host: str = "agent.minimax.io", timeout: float = 6.
         socket.create_connection((host, 443), timeout=timeout).close()
         return True, ""
     except socket.gaierror:
-        return False, "無法解析網域名稱（DNS）：請檢查網路連線"
+        return False, t("login.net.dns")
     except (TimeoutError, socket.timeout):
-        return False, "連線 MiniMax 逾時：請檢查網路或防火牆"
+        return False, t("login.net.timeout2")
     except OSError as exc:
-        return False, f"無法連線到 MiniMax：{exc}"
+        return False, t("login.net.failed", detail=exc)
 
 
 def _default_browsers_dir() -> Path | None:
@@ -292,10 +299,10 @@ class BrowserManager:
         failures: list[str] = []
         for candidate in order:
             if candidate == "chromium" and not builtin_browser_available():
-                failures.append("內建 Chromium：尚未安裝瀏覽器核心")
+                failures.append(t("browser.launch.tried_detail", label=channel_label("chromium"), reason=t("browser.launch.no_core")))
                 continue
             if candidate in ("chrome", "msedge") and candidate not in system_browsers():
-                failures.append(f"{CHANNEL_LABELS[candidate]}：系統未安裝")
+                failures.append(t("browser.launch.tried_detail", label=channel_label(candidate), reason=t("browser.launch.no_system")))
                 continue
             kwargs: dict[str, Any] = {
                 "headless": headless,
@@ -310,7 +317,7 @@ class BrowserManager:
             try:
                 self._browser = await self._playwright.chromium.launch(**kwargs)
             except PlaywrightError as exc:
-                failures.append(f"{CHANNEL_LABELS[candidate]}：{str(exc).splitlines()[0][:120]}")
+                failures.append(t("browser.launch.tried_detail", label=channel_label(candidate), reason=str(exc).splitlines()[0][:120]))
                 continue
             self._headless, self._channel, self._proxy = headless, candidate, proxy
             self._requested_channel = channel
@@ -320,10 +327,10 @@ class BrowserManager:
                     f"已自動改用 {CHANNEL_LABELS[candidate]}"
                 )
             logger.info(
-                f"瀏覽器已啟動（{CHANNEL_LABELS[candidate]}／{'無頭' if headless else '顯示視窗'}）"
+                f"瀏覽器已啟動（{channel_label(candidate)}／{'無頭' if headless else '顯示視窗'}）"
             )
             return
-        raise BrowserLaunchError("；".join(failures) or "找不到可用的瀏覽器")
+        raise BrowserLaunchError(t("browser.launch.fail", tried="；".join(failures) or t("browser.launch.no_browser")))
 
     async def ensure(self, headless: bool, channel: str = "chromium", proxy: str = "") -> None:
         """確保瀏覽器以指定模式運行；模式不同時會自動重啟。"""
@@ -655,11 +662,11 @@ class BrowserManager:
         timeout = max(60, int(timeout_seconds or LOGIN_TIMEOUT_SECONDS))
 
         if cancel is not None and cancel.is_set():
-            return LoginResult(error="cancelled", message="已取消登入")
+            return LoginResult(error="cancelled", message=t("login.error.cancelled"))
 
         # 0) 若簽到正在進行，先告知使用者並等待，避免兩者互搶瀏覽器
         if self.operation.locked():
-            await self._notify(on_stage, "waiting_run", "正在等待目前的簽到作業結束…")
+            await self._notify(on_stage, "waiting_run", t("login.stage.waiting_run"))
         await self.operation.acquire()
         operation_acquired = True
 
@@ -670,7 +677,7 @@ class BrowserManager:
             if not reachable:
                 return LoginResult(error="network", message=reason)
 
-            await self._notify(on_stage, "launching", "正在啟動瀏覽器視窗…")
+            await self._notify(on_stage, "launching", t("login.stage.launching"))
             await self.ensure(headless=False, channel=cfg.browser_channel, proxy=cfg.proxy)
             assert self._browser is not None
 
@@ -688,7 +695,7 @@ class BrowserManager:
             context.on("close", lambda *_: closed.set())
 
             # 1) 載入首頁（失敗即回報可讀原因）
-            await self._notify(on_stage, "opening", "正在連線 MiniMax…")
+            await self._notify(on_stage, "opening", t("login.stage.opening"))
             try:
                 response = await page.goto(BASE_URL, wait_until="domcontentloaded", timeout=30000)
             except PlaywrightError as exc:
@@ -698,11 +705,11 @@ class BrowserManager:
             if response is not None and response.status >= 400:
                 return LoginResult(
                     error="blocked",
-                    message=f"MiniMax 回應 HTTP {response.status}（可能被網路環境阻擋）",
+                    message=t("login.error.http", status=response.status),
                 )
 
             # 2) 直接進入官方登入頁（由網站自行產生 OAuth 參數，最穩定）
-            await self._notify(on_stage, "opening", "正在開啟登入頁面…")
+            await self._notify(on_stage, "opening", t("login.stage.opening_login"))
             entered = await self._enter_login_page(page)
 
             # 3) 登入頁載入後「再次」確認視窗位置。
@@ -718,42 +725,42 @@ class BrowserManager:
             if not entered or LOGIN_HOST not in page.url:
                 return LoginResult(
                     error="timeout",
-                    message="登入頁面未能載入，請確認網路正常後再試一次",
+                    message=t("login.error.timeout_page"),
                 )
 
             # 4) 登入頁已就緒，等使用者操作
-            await self._notify(on_stage, "fitting", "正在調整登入頁面顯示範圍…")
+            await self._notify(on_stage, "fitting", t("login.stage.fitting"))
             scale = await self._fit_page_to_window(page)
-            note = f"（已自動縮放至 {int(scale * 100)}% 以完整顯示）" if scale < 1.0 else ""
+            note = t("login.stage.scaled", pct=int(scale * 100)) if scale < 1.0 else ""
             await self._notify(
-                on_stage, "ready", f"登入頁面已就緒，請在瀏覽器視窗完成登入{note}"
+                on_stage, "ready", t("login.stage.ready", note=note)
             )
             logger.info("登入頁面已開啟，等待使用者完成登入…")
 
             deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
                 if closed.is_set():
-                    return LoginResult(error="closed", message="登入視窗已關閉，未完成登入")
+                    return LoginResult(error="closed", message=t("login.error.closed"))
                 if cancel is not None and cancel.is_set():
-                    return LoginResult(error="cancelled", message="已取消登入")
+                    return LoginResult(error="cancelled", message=t("login.error.cancelled"))
                 if await self.is_logged_in(page):
                     return await self._finish_login(context, page)
                 await asyncio.sleep(1.5)
 
             return LoginResult(
                 error="timeout",
-                message=f"登入等待逾時（{max(1, timeout // 60)} 分鐘），請再試一次",
+                message=t("login.error.timeout_wait", minutes=max(1, timeout // 60)),
             )
         except BrowserLaunchError as exc:
             return LoginResult(error="no_browser", message=str(exc))
         except PlaywrightError as exc:
             logger.warning(f"登入流程瀏覽器錯誤：{exc}")
             return LoginResult(
-                error="unknown", message=f"瀏覽器錯誤：{str(exc).splitlines()[0][:120]}"
+                error="unknown", message=t("login.error.browser", detail=str(exc).splitlines()[0][:120])
             )
         except Exception as exc:  # pragma: no cover - 保底
             logger.exception("登入流程未預期錯誤")
-            return LoginResult(error="unknown", message=f"登入失敗：{exc}")
+            return LoginResult(error="unknown", message=t("login.error.fail", detail=exc))
         finally:
             if context is not None:
                 try:

@@ -22,6 +22,7 @@ from qfluentwidgets import (
 )
 
 from app import paths
+from app.i18n import t
 from app.ui.components import make_background_transparent
 
 MAX_LINES = 5000
@@ -44,33 +45,33 @@ class LogPage(QWidget):
         header = QHBoxLayout()
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
-        title_box.addWidget(SubtitleLabel("執行紀錄", self))
-        title_box.addWidget(CaptionLabel("所有自動化動作與錯誤訊息都會記錄在這裡與日誌檔案中。", self))
+        title_box.addWidget(SubtitleLabel(t("logs.title"), self))
+        title_box.addWidget(CaptionLabel(t("logs.subtitle"), self))
         header.addLayout(title_box)
         header.addStretch(1)
 
         self.levelCombo = ComboBox(self)
-        self.levelCombo.addItems(["全部", "INFO 以上", "警告以上", "錯誤"])
+        self.levelCombo.addItems([t("logs.level.all"), t("logs.level.info"), t("logs.level.warn"), t("logs.level.error")])
         self.levelCombo.setCurrentIndex(1)
         self.levelCombo.setFixedWidth(130)
         self.levelCombo.currentIndexChanged.connect(self._on_level_changed)
         header.addWidget(self.levelCombo)
 
         self.autoScroll = SwitchButton(self)
-        self.autoScroll.setOnText("自動捲動")
-        self.autoScroll.setOffText("自動捲動")
+        self.autoScroll.setOnText(t("logs.autoscroll"))
+        self.autoScroll.setOffText(t("logs.autoscroll"))
         self.autoScroll.setChecked(True)
         header.addWidget(self.autoScroll)
 
-        self.clearButton = PushButton("清除", self, FluentIcon.BROOM)
+        self.clearButton = PushButton(t("logs.clear"), self, FluentIcon.BROOM)
         self.clearButton.clicked.connect(self.clear)
         header.addWidget(self.clearButton)
 
-        self.folderButton = PushButton("開啟資料夾", self, FluentIcon.FOLDER)
+        self.folderButton = PushButton(t("logs.open_folder"), self, FluentIcon.FOLDER)
         self.folderButton.clicked.connect(self._open_logs_folder)
         header.addWidget(self.folderButton)
 
-        self.exportButton = PushButton("匯出", self, FluentIcon.SAVE)
+        self.exportButton = PushButton(t("logs.export"), self, FluentIcon.SAVE)
         self.exportButton.clicked.connect(self._export)
         header.addWidget(self.exportButton)
         layout.addLayout(header)
@@ -121,7 +122,7 @@ class LogPage(QWidget):
 
     def _export(self) -> None:
         default = f"minimax-checkin-log-{datetime.now():%Y%m%d_%H%M%S}.txt"
-        path, _ = QFileDialog.getSaveFileName(self, "匯出紀錄", default, "文字檔 (*.txt)")
+        path, _ = QFileDialog.getSaveFileName(self, t("logs.export.title"), default, t("logs.export.filter"))
         if not path:
             return
         with open(path, "w", encoding="utf-8") as handle:

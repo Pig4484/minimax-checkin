@@ -30,6 +30,7 @@ from app.constants import (
 )
 from app.core import diagnostics, selectors
 from app.core.account import Account, AccountManager
+from app.i18n import t
 from app.logger import logger
 
 
@@ -183,20 +184,20 @@ async def _click_and_wait(page, locator, timeout_ms: int, tag: str):
             response = await waiter.value
             return await response.json(), ""
         except PlaywrightTimeout as exc:
-            detail = str(exc).splitlines()[0][:100] if str(exc) else "逾時"
+            detail = str(exc).splitlines()[0][:100] if str(exc) else t("checkin.click.timeout")
             if attempt < 2:
                 logger.warning(f"[{tag}] 第 {attempt + 1} 次點擊未成功（{detail}），嘗試關閉遮罩後重試")
                 await _dismiss_overlays(page, tag)
                 continue
-            return None, "點擊未成功（可能被彈窗或其他元素阻擋）"
+            return None, t("checkin.click.blocked")
         except PlaywrightError as exc:
-            detail = str(exc).splitlines()[0][:100] if str(exc) else "瀏覽器錯誤"
+            detail = str(exc).splitlines()[0][:100] if str(exc) else t("checkin.click.browser")
             if attempt < 2:
                 logger.warning(f"[{tag}] 第 {attempt + 1} 次點擊失敗（{detail}），重試中")
                 await _dismiss_overlays(page, tag)
                 continue
-            return None, f"點擊失敗：{detail}"
-    return None, "點擊未成功"
+            return None, t("checkin.click.fail", detail=detail)
+    return None, t("checkin.click.blocked")
 
 
 async def run_account_checkin(
@@ -211,7 +212,7 @@ async def run_account_checkin(
     tag = account.display_name
     state = accounts.load_state(account)
     if not state:
-        return CheckinOutcome(RunStatus.NEED_RELOGIN, message="尚未登入（沒有可用的 session）")
+        return CheckinOutcome(RunStatus.NEED_RELOGIN, message=t("checkin.nosession"))
 
     folder = diag_folder or diagnostics.session_dir(tag)
     context: BrowserContext | None = None
@@ -257,7 +258,7 @@ async def run_account_checkin(
             # 回 FAILED 而非 NEED_RELOGIN，避免明明能簽到卻叫使用者重登。
             return CheckinOutcome(
                 RunStatus.FAILED,
-                message="未能取得簽到狀態（頁面被關閉或網路中斷），請再試一次",
+                message=t("checkin.page_closed"),
                 detail={"url": page.url},
             )
         else:
@@ -274,7 +275,7 @@ async def run_account_checkin(
             diagnostics.write_json(folder, "status.json", status_payload or {})
             return CheckinOutcome(
                 RunStatus.NEED_RELOGIN,
-                message="登入狀態已失效，請重新登入此帳號",
+                message=t("checkin.relogin"),
                 detail={"url": page.url},
             )
 
@@ -290,7 +291,7 @@ async def run_account_checkin(
                 RunStatus.ALREADY,
                 points=_points_of(today),
                 day_no=int(today.get("day_no") or 0),
-                message="今日已簽到",
+                message=t("checkin.already"),
                 detail={"today": today},
             )
 
@@ -300,25 +301,25 @@ async def run_account_checkin(
         # --- 等待簽到面板 -------------------------------------------------
         if not await _wait_panel(page, min(timeout_ms, 20000)):
             if today_status == DayStatus.AVAILABLE:
-                return await _drift_outcome(page, folder, "簽到面板未出現（介面可能已改版）")
+                return await _drift_outcome(page, folder, t("checkin.panel.missing"))
             if today_status is None:
-                return await _drift_outcome(page, folder, "無法取得簽到狀態（介面可能已改版）")
+                return await _drift_outcome(page, folder, t("checkin.status.missing"))
             return CheckinOutcome(
                 RunStatus.ALREADY,
                 points=_points_of(today),
-                message="今日已簽到（面板未顯示）",
+                message=t("checkin.already.nopanel"),
                 detail={"today": today},
             )
 
         if cancel is not None and cancel.is_set():
-            return CheckinOutcome(RunStatus.FAILED, message="已取消")
+            return CheckinOutcome(RunStatus.FAILED, message=t("checkin.cancelled"))
 
         # --- 尋找並點擊簽到按鈕 -------------------------------------------
         match = await selectors.find_claim_button(page)
         if match is None:
-            return await _drift_outcome(page, folder, "找不到簽到按鈕（介面可能已改版）")
+            return await _drift_outcome(page, folder, t("checkin.nobutton"))
         if match.looks_claimed:
-            return CheckinOutcome(RunStatus.ALREADY, message="今日已簽到（按鈕顯示已領取）")
+            return CheckinOutcome(RunStatus.ALREADY, message=t("checkin.already.claimed"))
 
         logger.info(f"[{tag}] 找到簽到按鈕 → {match.selector}｜{match.label}")
 
@@ -332,9 +333,9 @@ async def run_account_checkin(
         if claim_payload is not None and code == 0 and int(data.get("claim_result") or 0) == 1:
             points = int(data.get("points") or 0)
             verified = await _verify_claimed(page)
-            message = f"簽到成功，獲得 {points} 點"
+            message = t("checkin.success", points=points)
             if not verified:
-                message += "（未取得二次驗證）"
+                message += t("checkin.success.unverified")
             logger.info(f"[{tag}] {message}")
             return CheckinOutcome(
                 RunStatus.SUCCESS,
@@ -345,31 +346,31 @@ async def run_account_checkin(
             )
 
         if claim_payload is not None:
-            api_message = selectors.message_of(claim_payload) or f"API 回應碼 {code}"
+            api_message = selectors.message_of(claim_payload) or t("checkin.api.code", code=code)
             logger.warning(f"[{tag}] 簽到失敗：{api_message}")
             return CheckinOutcome(
                 RunStatus.FAILED,
-                message=f"簽到失敗：{api_message}",
+                message=t("checkin.api.fail", detail=api_message),
                 detail={"claim": claim_payload},
             )
 
         # 完全沒有 API 回應時，用 DOM 變化做最後判斷
         if not await selectors.panel_present(page):
             return CheckinOutcome(
-                RunStatus.ALREADY, message="簽到後面板消失，判定為已簽到（未取得 API 回應）"
+                RunStatus.ALREADY, message=t("checkin.already.gone")
             )
         return CheckinOutcome(
             RunStatus.FAILED,
-            message=click_error or "簽到未成功（未取得 API 回應）",
+            message=click_error or t("checkin.noresponse"),
             detail={"selector": match.selector},
         )
 
     except PlaywrightError as exc:
         logger.warning(f"[{tag}] 執行錯誤：{exc}")
-        return CheckinOutcome(RunStatus.FAILED, message=f"瀏覽器錯誤：{exc}")
+        return CheckinOutcome(RunStatus.FAILED, message=t("checkin.browser.error", detail=exc))
     except Exception as exc:  # pragma: no cover - 保底
         logger.exception(f"[{tag}] 未預期錯誤")
-        return CheckinOutcome(RunStatus.FAILED, message=f"未預期錯誤：{exc}")
+        return CheckinOutcome(RunStatus.FAILED, message=t("checkin.unexpected", detail=exc))
     finally:
         if context is not None and not getattr(cfg, "keep_browser_open", False):
             try:

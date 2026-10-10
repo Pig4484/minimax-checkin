@@ -9,13 +9,16 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from qfluentwidgets import (
     Action,
+    BodyLabel,
     FluentIcon as FIF,
     FluentWindow,
     InfoBar,
     InfoBarPosition,
     LineEdit,
     MessageBox,
+    MessageBoxBase,
     NavigationItemPosition,
+    SubtitleLabel,
     SystemTrayMenu,
     Theme,
     setTheme,
@@ -24,7 +27,7 @@ from qfluentwidgets import (
 
 from app import paths
 from app.config import THEME_DARK, THEME_LIGHT, THEME_SYSTEM, AppConfig
-from app.constants import APP_NAME, RUN_STATUS_TEXT, RunStatus
+from app.constants import APP_NAME, RunStatus
 from app.core import autostart
 from app.i18n import t
 from app.logger import logger
@@ -49,6 +52,7 @@ class MainWindow(FluentWindow):
         self._quitting = False
         self._tray_hint_shown = False
         self._results: dict[str, dict] = {}
+        self._shown_once = False  # ?????????--minimized ?????? False?
 
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(app_icon())
@@ -179,8 +183,8 @@ class MainWindow(FluentWindow):
             drift = bool(payload.get("drift_warning"))
             if drift:
                 self.info_bar(
-                    "應用可能已過期",
-                    "連續多次找不到簽到介面，建議按「重新掃描頁面」更新選擇器。",
+                    t("notify.drift.title"),
+                    t("notify.drift.body"),
                     ok=False,
                 )
         elif event == "login_state":
@@ -189,26 +193,25 @@ class MainWindow(FluentWindow):
             self.refresh_all()
         elif event == "probe_finished":
             self.info_bar(
-                "掃描完成",
-                f"面板存在：{payload.get('panel')}｜候選元素：{payload.get('candidates')}｜"
-                f"命中：{payload.get('matched') or '無'}",
+                t("notify.scan.done"),
+                t("notify.scan.body", panel=payload.get('panel'), candidates=payload.get('candidates'), matched=payload.get('matched') or t('notify.scan.none')),
                 ok=True,
             )
         elif event == "browser_download":
             state = str(payload.get("state", ""))
             if state == "started":
                 self.info_bar(
-                    "正在下載瀏覽器核心", "約 150MB，請保持網路連線（可繼續使用其他功能）", ok=True,
+                    t("notify.dl.title"), t("notify.dl.body"), ok=True,
                     duration=8000,
                 )
             elif state == "finished":
-                self.info_bar("瀏覽器核心就緒", str(payload.get("message", "")), ok=True)
+                self.info_bar(t("notify.dl.done"), str(payload.get("message", "")), ok=True)
             else:
-                self.info_bar("下載失敗", str(payload.get("message", "")), ok=False, duration=10000)
+                self.info_bar(t("notify.dl.fail"), str(payload.get("message", "")), ok=False, duration=10000)
         elif event == "error":
             message = str(payload.get("message", ""))
             logger.warning(message)
-            self.info_bar("發生錯誤", message, ok=False)
+            self.info_bar(t("notify.error"), message, ok=False)
 
     def _on_login_state(self, payload: dict) -> None:
         """登入流程各階段的提示（綠色 InfoBar＋帳號卡轉圈圈，不再用藍色 StateToolTip）。"""
@@ -220,29 +223,29 @@ class MainWindow(FluentWindow):
             self.accountPage.set_busy(account_id, True)
         elif state == "ready":
             self.info_bar(
-                "請完成登入",
-                "已為您開啟 MiniMax 登入頁面，請選擇 Google／Email 驗證碼／GitHub 完成登入。",
+                t("notify.login.title"),
+                t("notify.login.body"),
                 ok=True,
                 duration=10000,
             )
         elif state == "success":
             self.accountPage.set_busy(account_id, False)
-            self.info_bar("登入成功", f"{payload.get('user_name', '')} 的登入狀態已儲存", ok=True)
-            self.notify("登入成功", f"{payload.get('user_name', '')} 已完成登入")
+            self.info_bar(t("notify.login.success"), f"{payload.get('user_name', '')}{t('notify.login.saved')}", ok=True)
+            self.notify(t("notify.login.success"), f"{payload.get('user_name', '')} {t('notify.login.done')}")
             self.refresh_all()
         elif state == "failed":
             self.accountPage.set_busy(account_id, False)
             error_kind = str(payload.get("error", ""))
             title = {
-                "network": "無法連線",
-                "proxy": "代理伺服器問題",
-                "ssl": "憑證錯誤",
-                "blocked": "連線被阻擋",
-                "timeout": "登入逾時",
-                "closed": "視窗已關閉",
-                "cancelled": "已取消登入",
-                "no_browser": "找不到瀏覽器",
-            }.get(error_kind, "登入未完成")
+                "network": t("login.error.network"),
+                "proxy": t("login.error.proxy"),
+                "ssl": t("login.error.ssl"),
+                "blocked": t("login.error.blocked"),
+                "timeout": t("login.error.timeout"),
+                "closed": t("login.error.closed"),
+                "cancelled": t("login.error.cancelled"),
+                "no_browser": t("login.error.nobrowser"),
+            }.get(error_kind, t("login.error.other"))
             self.info_bar(title, message, ok=False, duration=12000)
             if error_kind not in ("cancelled",):
                 self.notify(title, message, ok=False)
@@ -254,11 +257,11 @@ class MainWindow(FluentWindow):
         status = str(payload.get("status", ""))
         alias = str(payload.get("alias", ""))
         if status == "success" and self.cfg.notify_success:
-            self.notify("簽到成功", f"{alias} 獲得 {payload.get('points', 0)} 點")
+            self.notify(t("notify.checkin.success"), t("notify.checkin.success.body", alias=alias, points=payload.get('points', 0)))
         elif status in ("failed", "rate_limited", "drift") and self.cfg.notify_failure:
-            self.notify("簽到失敗", f"{alias}：{payload.get('message', '')}", ok=False)
+            self.notify(t("notify.checkin.fail"), f"{alias}：{payload.get('message', '')}", ok=False)
         elif status == "need_relogin" and self.cfg.notify_relogin:
-            self.notify("需要重新登入", f"{alias} 的登入狀態已失效", ok=False)
+            self.notify(t("notify.checkin.relogin"), t("notify.checkin.relogin.body", alias=alias), ok=False)
 
     def info_bar(self, title: str, content: str, ok: bool = True, duration: int = 5000) -> None:
         (InfoBar.success if ok else InfoBar.warning)(
@@ -284,7 +287,7 @@ class MainWindow(FluentWindow):
     # --- 使用者動作 ----------------------------------------------------
     def run_now(self) -> None:
         if not self.worker.ready:
-            self.info_bar("引擎啟動中", "自動化引擎尚未就緒，請稍候再試。", ok=False)
+            self.info_bar(t("notify.engine_starting"), t("notify.engine_wait"), ok=False)
             return
         self.homePage.set_running(True)
         self._results.clear()
@@ -295,56 +298,66 @@ class MainWindow(FluentWindow):
         account = accounts.add()
         self.refresh_all()
         self.info_bar(
-            "已新增帳號",
-            "將開啟瀏覽器視窗，請在該視窗完成登入（Google／Email 驗證碼／GitHub）。",
+            t("notify.account.added"),
+            t("notify.account.added.body"),
             duration=8000,
         )
         self.worker.request_login(account.id)
 
     def rename_account(self, account_id: str) -> None:
-        from qfluentwidgets import LineEdit
-
         account = self.worker.accounts.get(account_id)
         if account is None:
             return
-        box = MessageBox("重新命名帳號", "別名用於區分多個帳號（不可重複，最多 24 字）。", self)
-        edit = LineEdit(box)
+        # 必須用 MessageBoxBase（提供 viewLayout 給自訂輸入框）。
+        # MessageBox 只有 textLayout、沒有 viewLayout，對它呼叫
+        # box.viewLayout.addWidget() 會丟 AttributeError；舊版把這段
+        # 包在 try/except: pass 裡，導致輸入框從未加入對話框，使用者
+        # 看不到輸入框、按「確定」只會用舊別名（edit.text() 仍是預設值）重新命名。
+        box = MessageBoxBase(self)
+        title = SubtitleLabel(t("notify.account.rename.title"))
+        body = BodyLabel(t("notify.account.rename.body"))
+        body.setWordWrap(True)
+        edit = LineEdit()
         edit.setText(account.alias)
-        edit.setPlaceholderText("例如：主力帳號")
+        edit.setPlaceholderText(t("notify.account.rename.ph"))
         edit.setClearButtonEnabled(True)
-        try:
-            box.viewLayout.addWidget(edit)
-        except Exception:
-            pass
-        box.yesButton.setText("確定")
-        box.cancelButton.setText("取消")
+        box.viewLayout.addWidget(title)
+        box.viewLayout.addWidget(body)
+        box.viewLayout.addWidget(edit)
+        box.yesButton.setText(t("notify.account.rename.ok"))
+        box.cancelButton.setText(t("notify.account.rename.cancel"))
+        box.widget.setMinimumWidth(360)
+        # 讓輸入框一開對話框就聚焦並全選，方便直接改寫。
+        edit.setFocus()
+        edit.selectAll()
+        # exec() 回傳 QDialog.Accepted(1)／Rejected(0)；按「確定」才繼續。
         if not box.exec():
             return
         ok, reason = self.worker.accounts.rename(account_id, edit.text())
         if not ok:
-            self.info_bar("重新命名失敗", reason, ok=False)
+            self.info_bar(t("notify.account.rename.fail"), reason, ok=False)
             return
         self.refresh_all()
-        self.info_bar("已重新命名", account.alias)
+        self.info_bar(t("notify.account.renamed"), edit.text().strip())
 
     def delete_account(self, account_id: str) -> None:
         account = self.worker.accounts.get(account_id)
         if account is None:
             return
         box = MessageBox(
-            "確定要刪除此帳號？",
-            f"「{account.display_name}」的登入 session 會被清除，之後需要重新登入。",
+            t("notify.account.delete.title"),
+            t("notify.account.delete.body", name=account.display_name),
             self,
         )
-        box.yesButton.setText("刪除")
-        box.cancelButton.setText("取消")
+        box.yesButton.setText(t("notify.account.delete.ok"))
+        box.cancelButton.setText(t("notify.account.delete.cancel"))
         if not box.exec():
             return
         self.worker.accounts.remove(account_id)
         self._results.pop(account_id, None)
         self.homePage.update_results(list(self._results.values()))
         self.refresh_all()
-        self.info_bar("已刪除帳號", account.display_name)
+        self.info_bar(t("notify.account.deleted"), account.display_name)
 
     def set_account_enabled(self, account_id: str, enabled: bool) -> None:
         self.worker.accounts.update(account_id, enabled=bool(enabled))
@@ -359,9 +372,31 @@ class MainWindow(FluentWindow):
             self._apply_theme()
         except Exception:
             pass
+        # ????????????????showNormal ???? showEvent?
+        # ????????????????
+        first_show = not getattr(self, "_shown_once", True)
         self.showNormal()
+        if first_show:
+            # ???????????????????_preferred_size ???
+            # ??????????????????????????????
+            # ?????????????????????????????
+            #??????????????????
+            try:
+                pref_w, pref_h = self._preferred_size()
+                if self.width() < pref_w or self.height() < pref_h:
+                    self.resize(max(self.width(), pref_w), max(self.height(), pref_h))
+                layout = self.layout()
+                if layout is not None:
+                    layout.activate()
+                self.update()
+            except Exception:
+                pass
         self.activateWindow()
         self.raise_()
+
+    def showEvent(self, event) -> None:  # noqa: N802 (Qt ????)
+        super().showEvent(event)
+        self._shown_once = True
 
     def show_results(self) -> None:
         self.show_window()
@@ -455,39 +490,39 @@ class MainWindow(FluentWindow):
             from app.i18n import set_language
 
             set_language(str(value))
-            self.info_bar("語言已切換", "重啟程式後生效", duration=8000)
+            self.info_bar(t("notify.lang.changed"), t("notify.lang.restart"), duration=8000)
         elif key == "autostart":
             if not autostart.apply(bool(value)):
-                self.info_bar("設定失敗", "無法寫入開機自啓動登錄檔（Windows 登錄檔權限問題）", ok=False)
+                self.info_bar(t("notify.setting.fail"), t("notify.setting.fail.body"), ok=False)
         elif key == "daily_time":
             self.refresh_summary()
         logger.info(f"設定已更新：{key} = {value}")
 
     def _confirm_clear_sessions(self) -> None:
-        box = MessageBox("確定要清除所有登入狀態？", "所有帳號都必須重新登入才能簽到。", self)
-        box.yesButton.setText("清除")
-        box.cancelButton.setText("取消")
+        box = MessageBox(t("notify.sessions.clear.title"), t("notify.sessions.clear.body"), self)
+        box.yesButton.setText(t("notify.sessions.clear.ok"))
+        box.cancelButton.setText(t("notify.sessions.clear.cancel"))
         if not box.exec():
             self.settingsPage.reload(self.cfg)
             return
         manager = self.worker.accounts
         for account in manager.accounts:
             manager.clear_state(account)
-            manager.update(account.id, persist=False, last_status="", last_message="尚未登入")
+            manager.update(account.id, persist=False, last_status="", last_message=t("accounts.card.not_run"))
         manager.save()
         self._results.clear()
         self.refresh_all()
-        self.info_bar("已清除登入狀態", "請重新登入各帳號")
+        self.info_bar(t("notify.sessions.cleared"), t("notify.sessions.cleared.body"))
 
     def _confirm_clear_local_data(self) -> None:
         """清除日誌與診斷檔（保留設定與帳號）。"""
         box = MessageBox(
-            "確定要清除本機資料？",
-            f"將刪除下列內容（不含設定與帳號）：\n{paths.logs_dir()}\n{paths.diagnostics_dir()}",
+            t("notify.local.clear.title"),
+            t("notify.local.clear.body", folders=f"{paths.logs_dir()}\n{paths.diagnostics_dir()}"),
             self,
         )
-        box.yesButton.setText("清除")
-        box.cancelButton.setText("取消")
+        box.yesButton.setText(t("notify.local.clear.ok"))
+        box.cancelButton.setText(t("notify.local.clear.cancel"))
         if not box.exec():
             return
         removed = 0
@@ -503,7 +538,7 @@ class MainWindow(FluentWindow):
                     removed += 1
                 except OSError:
                     continue
-        self.info_bar("已清除本機資料", f"共移除 {removed} 個項目")
+        self.info_bar(t("notify.local.cleared"), t("notify.local.cleared.body", count=removed))
         logger.info(f"已清除本機資料：{removed} 個項目")
 
     def _apply_theme(self) -> None:
@@ -585,24 +620,28 @@ class MainWindow(FluentWindow):
 
     @staticmethod
     def _account_row(account) -> dict:
+        from app.constants import run_status_text
+
         status = account.last_status or ("success" if account.signed_in_today else "idle")
         try:
-            status_text = RUN_STATUS_TEXT.get(RunStatus(status), "待簽到")
+            status_text = run_status_text(RunStatus(status))
         except ValueError:
-            status, status_text = "idle", "待簽到"
+            status, status_text = "idle", t("status.todo")
         if not account.enabled:
-            status, status_text = "idle", "已停用"
+            status, status_text = "idle", t("status.disabled")
         elif account.signed_in_today and not account.last_status:
-            status_text = "今日已簽到"
+            status_text = t("status.signed")
+        user_part = account.user_id or t("status.not_logged")
+        login_part = account.last_login_at or "-"
         return {
             "id": account.id,
             "account_id": account.id,
             "alias": account.display_name,
             "name": account.display_name,
-            "sub": f"ID {account.user_id or '尚未登入'}｜最後登入 {account.last_login_at or '-'}",
+            "sub": f"{t('status.id_prefix', id=user_part)}｜{t('status.last_login', time=login_part)}",
             "status": status,
             "status_text": status_text,
-            "message": account.last_message or "尚未執行",
+            "message": account.last_message or t("status.never_run"),
             "points": account.last_points,
             "time": account.last_run_at,
             "enabled": account.enabled,

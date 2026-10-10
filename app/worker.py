@@ -21,6 +21,7 @@ from app.core.browser import BrowserManager, builtin_browser_available, setup_br
 from app.core.engine import CheckinEngine
 from app.core.scheduler import Scheduler
 from app.core.state import RunStateStore
+from app.i18n import t
 from app.logger import logger
 
 
@@ -65,7 +66,7 @@ class AutomationWorker(QThread):
 
     def _submit(self, coro: Coroutine[Any, Any, Any], what: str) -> None:
         if self._loop is None or not self._loop.is_running():
-            self._emit("error", {"message": f"自動化引擎尚未就緒，無法{what}"})
+            self._emit("error", {"message": t("worker.engine_not_ready", what=what)})
             try:
                 coro.close()
             except Exception:
@@ -74,10 +75,10 @@ class AutomationWorker(QThread):
         asyncio.run_coroutine_threadsafe(coro, self._loop)
 
     def request_run(self, reason: str = "manual", only_ids: list[str] | None = None) -> None:
-        self._submit(self.scheduler.trigger(reason, only_ids), "執行簽到")
+        self._submit(self.scheduler.trigger(reason, only_ids), t("worker.action.run"))
 
     def request_login(self, account_id: str) -> None:
-        self._submit(self._capture_login(account_id), "開啟登入視窗")
+        self._submit(self._capture_login(account_id), t("worker.action.login"))
 
     def request_cancel(self) -> None:
         if self._loop is not None and self._loop.is_running():
@@ -93,10 +94,10 @@ class AutomationWorker(QThread):
             self._login_cancel.set()
 
     def request_probe(self, account_id: str | None = None) -> None:
-        self._submit(self._probe(account_id), "重新掃描頁面")
+        self._submit(self._probe(account_id), t("worker.action.probe"))
 
     def request_download_browser(self) -> None:
-        self._submit(self._download_browser(), "下載瀏覽器核心")
+        self._submit(self._download_browser(), t("worker.action.download"))
 
     # --- 內部 ----------------------------------------------------------
     def _emit(self, event: str, payload: dict[str, Any]) -> None:
@@ -113,15 +114,14 @@ class AutomationWorker(QThread):
                 self._emit(
                     "error",
                     {
-                        "message": "找不到可用的瀏覽器：請在「設定 → 瀏覽器核心狀態」按「下載核心」，"
-                        "或安裝 Google Chrome／Microsoft Edge。"
+                        "message": t("worker.nobrowser"),
                     },
                 )
                 return
             self.scheduler.start()
         except Exception as exc:
             logger.exception("自動化引擎啟動失敗")
-            self._emit("error", {"message": f"自動化引擎啟動失敗：{exc}"})
+            self._emit("error", {"message": t("worker.engine_fail", detail=exc)})
             return
         self._ready = True
         self._emit("ready", {"next_run_text": self.scheduler.next_run_text()})
@@ -137,7 +137,7 @@ class AutomationWorker(QThread):
     async def _capture_login(self, account_id: str) -> None:
         account = self.accounts.get(account_id)
         if account is None:
-            self._emit("error", {"message": "找不到帳號"})
+            self._emit("error", {"message": t("login.account.missing")})
             return
 
         if self._login_busy:
@@ -146,7 +146,7 @@ class AutomationWorker(QThread):
                 {
                     "account_id": account_id,
                     "state": "failed",
-                    "message": "已經有一個登入視窗在進行中，請先完成或關閉它",
+                    "message": t("login.state.busy"),
                 },
             )
             return
@@ -159,7 +159,7 @@ class AutomationWorker(QThread):
                 {
                     "account_id": account_id,
                     "state": "waiting_run",
-                    "message": "正在等待目前的簽到作業結束…",
+                    "message": t("login.state.waiting"),
                 },
             )
             await asyncio.sleep(1.0)
@@ -185,7 +185,7 @@ class AutomationWorker(QThread):
             logger.exception("登入流程錯誤")
             self._emit(
                 "login_state",
-                {"account_id": account_id, "state": "failed", "message": f"登入失敗：{exc}"},
+                {"account_id": account_id, "state": "failed", "message": t("login.state.fail", detail=exc)},
             )
             return
         finally:
@@ -199,7 +199,7 @@ class AutomationWorker(QThread):
                     "account_id": account_id,
                     "state": "failed",
                     "error": result.error,
-                    "message": result.message or "登入未完成",
+                    "message": result.message or t("login.state.unfinished"),
                 },
             )
             return
@@ -209,7 +209,7 @@ class AutomationWorker(QThread):
         account.user_id = info.get("user_id") or account.user_id
         account.avatar = info.get("avatar") or account.avatar
         account.last_status = ""
-        account.last_message = "已登入"
+        account.last_message = t("login.state.signed")
         account.drift_count = 0
         self.accounts.save_state(account, result.state)
         self.accounts.update(account.id, persist=True)
@@ -219,7 +219,7 @@ class AutomationWorker(QThread):
                 "account_id": account_id,
                 "state": "success",
                 "user_name": account.display_name,
-                "message": "登入成功，session 已儲存",
+                "message": t("login.state.saved"),
             },
         )
         self._emit("accounts_changed", {})
@@ -230,10 +230,10 @@ class AutomationWorker(QThread):
             self.accounts.get(account_id) if account_id else next(iter(self.accounts.accounts), None)
         )
         if account is None:
-            self._emit("error", {"message": "請先在「帳號」頁面新增帳號"})
+            self._emit("error", {"message": t("login.account.no_account")})
             return
         if not self.accounts.has_state(account):
-            self._emit("error", {"message": "此帳號尚未登入，無法掃描頁面"})
+            self._emit("error", {"message": t("login.account.not_logged")})
             return
         logger.info(f"開始掃描 MiniMax 頁面（{account.display_name}）…")
         folder = diagnostics.session_dir(f"{account.display_name}_probe")
@@ -264,7 +264,7 @@ class AutomationWorker(QThread):
             )
         except Exception as exc:
             logger.warning(f"掃描失敗：{exc}")
-            self._emit("error", {"message": f"掃描頁面失敗：{exc}"})
+            self._emit("error", {"message": t("worker.probe_fail", detail=exc)})
         finally:
             if context is not None:
                 try:
@@ -278,7 +278,7 @@ class AutomationWorker(QThread):
         使用 Playwright 自帶的驅動程式，不需額外工具；完成後會重啟瀏覽器以套用新核心。
         """
         if builtin_browser_available():
-            self._emit("browser_download", {"state": "finished", "message": "瀏覽器核心已存在"})
+            self._emit("browser_download", {"state": "finished", "message": t("browser.download.exists")})
             return
         target = paths.browsers_dir()
         self._emit("browser_download", {"state": "started", "path": str(target)})
@@ -329,7 +329,7 @@ class AutomationWorker(QThread):
                 "browser_download",
                 {
                     "state": "failed",
-                    "message": f"下載失敗：{exc}。可改用系統 Chrome／Edge（設定 → 瀏覽器核心）。",
+                    "message": t("browser.download.fail", detail=exc),
                 },
             )
             return
@@ -342,13 +342,13 @@ class AutomationWorker(QThread):
                 pass
             self._emit(
                 "browser_download",
-                {"state": "finished", "message": "瀏覽器核心下載完成"},
+                {"state": "finished", "message": t("browser.download.done")},
             )
         else:
             self._emit(
                 "browser_download",
                 {
                     "state": "failed",
-                    "message": f"下載未完成（結束碼 {code}）。可改用系統 Chrome／Edge。",
+                    "message": t("browser.download.incomplete", code=code),
                 },
             )

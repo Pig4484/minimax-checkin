@@ -24,7 +24,6 @@ from qfluentwidgets import (
 from app import paths
 from app.config import (
     BROWSER_CHOICES,
-    BROWSER_LABELS,
     LOG_LEVELS,
     THEME_DARK,
     THEME_LIGHT,
@@ -32,17 +31,19 @@ from app.config import (
 )
 from app.constants import APP_NAME, APP_NAME_CN, APP_VERSION, SELECTOR_PACK_VERSION
 from app.ui.components import ComboCard, SpinCard, SwitchCard, TextCard, make_background_transparent
+from app.i18n import t
 
 
 def browser_status_text() -> str:
     """瀏覽器核心狀態說明（給設定卡片顯示）。"""
     from app.core.browser import browser_status
+    from app.i18n import t
 
     status = browser_status()
     labels = {"chrome": "Chrome", "msedge": "Edge"}
-    builtin = "可用" if status["builtin"] else "未安裝（可按右側下載）"
-    system = "、".join(labels.get(name, name) for name in status["system"]) or "未偵測到"
-    return f"內建 Chromium：{builtin}｜系統：{system}"
+    builtin = t("settings.browser.ok") if status["builtin"] else t("settings.browser.missing")
+    system = "、".join(labels.get(name, name) for name in status["system"]) or t("settings.browser.none")
+    return t("settings.browser.status", builtin=builtin, system=system)
 
 
 class TimePickerDialog(MessageBoxBase):
@@ -50,7 +51,9 @@ class TimePickerDialog(MessageBoxBase):
 
     def __init__(self, current: str = "09:00", parent=None) -> None:
         super().__init__(parent)
-        self.titleLabel = SubtitleLabel("每日自動簽到時間", self)
+        from app.i18n import t
+
+        self.titleLabel = SubtitleLabel(t("settings.time.title"), self)
         self.viewLayout.addWidget(self.titleLabel)
         row = QHBoxLayout()
         self.hourSpin = SpinBox(self)
@@ -63,15 +66,15 @@ class TimePickerDialog(MessageBoxBase):
             hour, minute = 9, 0
         self.hourSpin.setValue(hour)
         self.minuteSpin.setValue(minute)
-        row.addWidget(CaptionLabel("時", self))
+        row.addWidget(CaptionLabel(t("settings.time.hour"), self))
         row.addWidget(self.hourSpin)
         row.addSpacing(12)
-        row.addWidget(CaptionLabel("分", self))
+        row.addWidget(CaptionLabel(t("settings.time.minute"), self))
         row.addWidget(self.minuteSpin)
         row.addStretch(1)
         self.viewLayout.addLayout(row)
-        self.yesButton.setText("確定")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(t("settings.time.ok"))
+        self.cancelButton.setText(t("settings.time.cancel"))
         self.widget.setMinimumWidth(360)
 
     def value(self) -> str:
@@ -132,18 +135,18 @@ class SettingsPage(SmoothScrollArea):
 
     # --- 一般 ----------------------------------------------------------
     def _build_general(self) -> None:
-        group = self._group("一般設定")
+        group = self._group(t("settings.group.general"))
         self.themeCard = self._add(
             group,
             ComboCard(
                 FluentIcon.BRUSH,
-                "介面主題",
+                t("settings.theme"),
                 [
-                    ("跟隨系統", THEME_SYSTEM),
-                    ("淺色", THEME_LIGHT),
-                    ("深色（預設）", THEME_DARK),
+                    (t("settings.theme.follow"), THEME_SYSTEM),
+                    (t("settings.theme.light"), THEME_LIGHT),
+                    (t("settings.theme.dark"), THEME_DARK),
                 ],
-                "變更後立即套用",
+                t("settings.theme.hint"),
                 self,
             ),
             "theme",
@@ -155,9 +158,9 @@ class SettingsPage(SmoothScrollArea):
             group,
             ComboCard(
                 FluentIcon.GLOBE,
-                "介面語言",
+                t("settings.language"),
                 [(LANGUAGE_LABELS[c], c) for c in LANGUAGE_CHOICES],
-                "切換後重啟程式生效",
+                t("settings.language.hint"),
                 self,
             ),
             "language",
@@ -165,41 +168,41 @@ class SettingsPage(SmoothScrollArea):
         )
         self.autostartCard = self._add(
             group,
-            SwitchCard(FluentIcon.POWER_BUTTON, "開機自啓動", "登入 Windows 後自動在背景執行", self),
+            SwitchCard(FluentIcon.POWER_BUTTON, t("settings.autostart"), t("settings.autostart.hint"), self),
             "autostart",
             "checkedChanged",
         )
         self.startMinimizedCard = self._add(
             group,
-            SwitchCard(FluentIcon.MINIMIZE, "啟動時縮到系統匣", "僅開機自啓動時生效：不顯示主視窗", self),
+            SwitchCard(FluentIcon.MINIMIZE, t("settings.start_minimized"), t("settings.start_minimized.hint"), self),
             "start_minimized",
             "checkedChanged",
         )
         self.minimizeOnManualLaunchCard = self._add(
             group,
-            SwitchCard(FluentIcon.HIDE, "手動開啟時也縮到托盤", "雙擊捷徑啟動也不顯示主視窗（預設關閉）", self),
+            SwitchCard(FluentIcon.HIDE, t("settings.minimize_manual"), t("settings.minimize_manual.hint"), self),
             "minimize_on_manual_launch",
             "checkedChanged",
         )
         self.closeToTrayCard = self._add(
             group,
-            SwitchCard(FluentIcon.CLOSE, "關閉視窗時縮到系統匣", "按右上角 X 不會結束程式", self),
+            SwitchCard(FluentIcon.CLOSE, t("settings.close_to_tray"), t("settings.close_to_tray.hint"), self),
             "close_to_tray",
             "checkedChanged",
         )
         self.singleInstanceCard = self._add(
             group,
-            SwitchCard(FluentIcon.APPLICATION, "只允許一個實例", "避免同時執行多份造成重複簽到", self),
+            SwitchCard(FluentIcon.APPLICATION, t("settings.single_instance"), t("settings.single_instance.hint"), self),
             "single_instance",
             "checkedChanged",
         )
 
     # --- 簽到 ----------------------------------------------------------
     def _build_checkin(self) -> None:
-        group = self._group("簽到設定")
+        group = self._group(t("settings.group.checkin"))
 
         self.timeCard = PushSettingCard(
-            "選擇時間", FluentIcon.CALENDAR, "每日自動簽到時間", "目前：09:00", self
+            t("settings.daily_time.pick"), FluentIcon.CALENDAR, t("settings.daily_time"), t("settings.daily_time.now", value="09:00"), self
         )
         self.timeCard.clicked.connect(self._pick_time)
         group.addSettingCard(self.timeCard)
@@ -209,11 +212,11 @@ class SettingsPage(SmoothScrollArea):
             group,
             SpinCard(
                 FluentIcon.SYNC,
-                "隨機延遲",
-                "在設定時間前後隨機浮動，避免每天固定時間觸發風控",
+                t("settings.jitter"),
+                t("settings.jitter.hint"),
                 minimum=0,
                 maximum=180,
-                suffix="分鐘",
+                suffix=t("settings.jitter.suffix"),
                 parent=self,
             ),
             "jitter_minutes",
@@ -223,8 +226,8 @@ class SettingsPage(SmoothScrollArea):
             group,
             SwitchCard(
                 FluentIcon.HISTORY,
-                "啟動時補簽",
-                "開啟程式時若今日尚未簽到，立即執行一次",
+                t("settings.catchup"),
+                t("settings.catchup.hint"),
                 self,
             ),
             "run_on_start_if_missed",
@@ -234,11 +237,11 @@ class SettingsPage(SmoothScrollArea):
             group,
             SpinCard(
                 FluentIcon.STOP_WATCH,
-                "頁面逾時",
-                "載入 MiniMax 頁面與等待回應的最長時間",
+                t("settings.timeout"),
+                t("settings.timeout.hint"),
                 minimum=15,
                 maximum=600,
-                suffix="秒",
+                suffix=t("settings.timeout.suffix"),
                 parent=self,
             ),
             "timeout_seconds",
@@ -248,11 +251,11 @@ class SettingsPage(SmoothScrollArea):
             group,
             SpinCard(
                 FluentIcon.UPDATE,
-                "失敗重試次數",
-                "當日簽到失敗後最多再嘗試幾次",
+                t("settings.retry"),
+                t("settings.retry.hint"),
                 minimum=0,
                 maximum=10,
-                suffix="次",
+                suffix=t("settings.retry.suffix"),
                 parent=self,
             ),
             "retry_times",
@@ -262,11 +265,11 @@ class SettingsPage(SmoothScrollArea):
             group,
             SpinCard(
                 FluentIcon.HISTORY,
-                "重試間隔",
-                "兩次重試之間等待的時間",
+                t("settings.retry_interval"),
+                t("settings.retry_interval.hint"),
                 minimum=1,
                 maximum=720,
-                suffix="分鐘",
+                suffix=t("settings.retry_interval.suffix"),
                 parent=self,
             ),
             "retry_interval_minutes",
@@ -276,8 +279,8 @@ class SettingsPage(SmoothScrollArea):
             group,
             SwitchCard(
                 FluentIcon.VIEW,
-                "無頭模式（不顯示瀏覽器視窗）",
-                "背景靜默執行；若被風控阻擋可關閉此選項改用顯示視窗",
+                t("settings.headless"),
+                t("settings.headless.hint"),
                 self,
             ),
             "headless",
@@ -287,8 +290,8 @@ class SettingsPage(SmoothScrollArea):
             group,
             SwitchCard(
                 FluentIcon.SYNC,
-                "無頭失敗時改用顯示視窗重試",
-                "提高成功率，但執行時會短暫出現瀏覽器視窗",
+                t("settings.fallback"),
+                t("settings.fallback.hint"),
                 self,
             ),
             "fallback_headed",
@@ -298,8 +301,8 @@ class SettingsPage(SmoothScrollArea):
             group,
             SwitchCard(
                 FluentIcon.DEVELOPER_TOOLS,
-                "執行後保留瀏覽器視窗",
-                "除錯用：方便觀察簽到過程",
+                t("settings.keep_browser"),
+                t("settings.keep_browser.hint"),
                 self,
             ),
             "keep_browser_open",
@@ -308,16 +311,16 @@ class SettingsPage(SmoothScrollArea):
 
     # --- 帳號 ----------------------------------------------------------
     def _build_account(self) -> None:
-        group = self._group("帳號設定")
+        group = self._group(t("settings.group.accounts"))
         self.concurrentCard = self._add(
             group,
             SpinCard(
                 FluentIcon.PEOPLE,
-                "同時處理帳號數",
-                "建議維持 1（依序執行），一次處理多個帳號較容易被風控",
+                t("settings.concurrent"),
+                t("settings.concurrent.hint"),
                 minimum=1,
                 maximum=3,
-                suffix="個",
+                suffix=t("settings.concurrent.suffix"),
                 parent=self,
             ),
             "concurrent_accounts",
@@ -327,15 +330,15 @@ class SettingsPage(SmoothScrollArea):
             group,
             SwitchCard(
                 FluentIcon.FINGERPRINT,
-                "加密儲存登入 session",
-                "使用 Windows DPAPI 加密（僅本機使用者可解密）；關閉後改存明文 JSON",
+                t("settings.encrypt"),
+                t("settings.encrypt.hint"),
                 self,
             ),
             "encrypt_sessions",
             "checkedChanged",
         )
         self.openAccountsCard = PushSettingCard(
-            "開啟資料夾", FluentIcon.FOLDER, "帳號資料目錄", str(paths.accounts_dir()), self
+            t("settings.open_folder"), FluentIcon.FOLDER, t("settings.accounts_dir"), str(paths.accounts_dir()), self
         )
         self.openAccountsCard.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths.accounts_dir())))
@@ -344,7 +347,7 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.openAccountsCard, group))
 
         self.clearSessionsCard = PushSettingCard(
-            "清除全部", FluentIcon.DELETE, "清除所有登入狀態", "需要重新登入所有帳號", self
+            t("settings.clear_sessions.all"), FluentIcon.DELETE, t("settings.clear_sessions"), t("settings.clear_sessions.hint"), self
         )
         self.clearSessionsCard.clicked.connect(lambda: self._changed("clear_sessions", True))
         group.addSettingCard(self.clearSessionsCard)
@@ -355,47 +358,49 @@ class SettingsPage(SmoothScrollArea):
         if dialog.exec():
             value = dialog.value()
             self.cfg.daily_time = value
-            self.timeCard.setContent(f"目前：{value}")
+            self.timeCard.setContent(t("settings.daily_time.now", value=value))
             self._changed("daily_time", value)
 
     # --- 通知 ----------------------------------------------------------
     def _build_notify(self) -> None:
-        group = self._group("通知設定")
+        group = self._group(t("settings.group.notify"))
         self.notifySuccessCard = self._add(
             group,
-            SwitchCard(FluentIcon.COMPLETED, "簽到成功通知", "以系統通知顯示獲得的點數", self),
+            SwitchCard(FluentIcon.COMPLETED, t("settings.notify.success"), t("settings.notify.success.hint"), self),
             "notify_success",
             "checkedChanged",
         )
         self.notifyFailCard = self._add(
             group,
-            SwitchCard(FluentIcon.RINGER, "簽到失敗通知", "失敗時立即通知，方便手動處理", self),
+            SwitchCard(FluentIcon.RINGER, t("settings.notify.fail"), t("settings.notify.fail.hint"), self),
             "notify_failure",
             "checkedChanged",
         )
         self.notifyReloginCard = self._add(
             group,
-            SwitchCard(FluentIcon.PEOPLE, "需要重新登入時通知", "session 過期時提醒重新登入", self),
+            SwitchCard(FluentIcon.PEOPLE, t("settings.notify.relogin"), t("settings.notify.relogin.hint"), self),
             "notify_relogin",
             "checkedChanged",
         )
         self.notifyMinimizeHintCard = self._add(
             group,
-            SwitchCard(FluentIcon.HOME, "縮到托盤時顯示提示", "關閉後按 X 縮到托盤不再彈出提示", self),
+            SwitchCard(FluentIcon.HOME, t("settings.notify.minimize"), t("settings.notify.minimize.hint"), self),
             "notify_minimize_hint",
             "checkedChanged",
         )
 
     # --- 進階 ----------------------------------------------------------
     def _build_advanced(self) -> None:
-        group = self._group("進階設定")
+        from app.config import browser_label
+
+        group = self._group(t("settings.group.advanced"))
         self.browserCard = self._add(
             group,
             ComboCard(
                 FluentIcon.GLOBE,
-                "瀏覽器核心",
-                [(BROWSER_LABELS[c], c) for c in BROWSER_CHOICES],
-                "改用系統已安裝的 Chrome／Edge 有時能降低風控機率",
+                t("settings.browser"),
+                [(browser_label(c), c) for c in BROWSER_CHOICES],
+                t("settings.browser.hint"),
                 self,
             ),
             "browser_channel",
@@ -403,9 +408,9 @@ class SettingsPage(SmoothScrollArea):
         )
 
         self.browserStatusCard = PushSettingCard(
-            "下載核心",
+            t("settings.browser.download"),
             FluentIcon.DOWNLOAD,
-            "瀏覽器核心狀態",
+            t("settings.browser.status"),
             browser_status_text(),
             self,
         )
@@ -416,9 +421,9 @@ class SettingsPage(SmoothScrollArea):
             group,
             TextCard(
                 FluentIcon.WIFI,
-                "代理伺服器",
-                "例如 http://127.0.0.1:7890（留空表示不使用）",
-                placeholder="留空表示不使用",
+                t("settings.proxy"),
+                t("settings.proxy.hint"),
+                placeholder=t("settings.proxy.placeholder"),
                 parent=self,
             ),
             "proxy",
@@ -428,9 +433,9 @@ class SettingsPage(SmoothScrollArea):
             group,
             TextCard(
                 FluentIcon.IOT,
-                "自訂 User-Agent",
-                "留空則使用內建的 Chrome UA",
-                placeholder="留空使用預設",
+                t("settings.user_agent"),
+                t("settings.user_agent.hint"),
+                placeholder=t("settings.user_agent.placeholder"),
                 parent=self,
             ),
             "custom_user_agent",
@@ -440,9 +445,9 @@ class SettingsPage(SmoothScrollArea):
             group,
             ComboCard(
                 FluentIcon.DOCUMENT,
-                "日誌等級",
+                t("settings.log_level"),
                 [(level, level) for level in LOG_LEVELS],
-                "調整寫入日誌的詳細程度",
+                t("settings.log_level.hint"),
                 self,
             ),
             "log_level",
@@ -452,11 +457,11 @@ class SettingsPage(SmoothScrollArea):
             group,
             SpinCard(
                 FluentIcon.SAVE,
-                "日誌保留天數",
-                "超過天數的舊日誌會自動刪除",
+                t("settings.log_days"),
+                t("settings.log_days.hint"),
                 minimum=1,
                 maximum=365,
-                suffix="天",
+                suffix=t("settings.log_days.suffix"),
                 parent=self,
             ),
             "log_days",
@@ -466,18 +471,18 @@ class SettingsPage(SmoothScrollArea):
             group,
             SpinCard(
                 FluentIcon.SEARCH,
-                "改版偵測門檻",
-                "連續幾次找不到簽到介面就提示「應用可能已過期」",
+                t("settings.drift"),
+                t("settings.drift.hint"),
                 minimum=1,
                 maximum=30,
-                suffix="次",
+                suffix=t("settings.drift.suffix"),
                 parent=self,
             ),
             "drift_threshold",
             "valueChanged",
         )
         self.openLogsCard = PushSettingCard(
-            "開啟資料夾", FluentIcon.FOLDER, "日誌目錄", str(paths.logs_dir()), self
+            t("settings.open_folder"), FluentIcon.FOLDER, t("settings.logs_dir"), str(paths.logs_dir()), self
         )
         self.openLogsCard.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths.logs_dir())))
@@ -486,11 +491,11 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.openLogsCard, group))
 
         # --- 檔案位置（Roaming 設定 / Local 資料） ------------------------
-        storage = self._group("檔案位置")
+        storage = self._group(t("settings.files.group"))
         self.roamingCard = PushSettingCard(
-            "開啟資料夾",
+            t("settings.open_folder"),
             FluentIcon.FOLDER,
-            "設定檔目錄（Roaming）",
+            t("settings.roaming_dir"),
             str(paths.roaming_dir()),
             self,
         )
@@ -501,10 +506,10 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.roamingCard, storage))
 
         self.localCard = PushSettingCard(
-            "開啟資料夾",
+            t("settings.open_folder"),
             FluentIcon.FOLDER,
-            "本機資料（Local）",
-            "帳號登入狀態、日誌、診斷檔（DPAPI 加密僅本機可用，故不隨帳號漫遊）",
+            t("settings.local_dir"),
+            t("settings.local_dir.hint"),
             self,
         )
         self.localCard.clicked.connect(
@@ -514,10 +519,10 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.localCard, storage))
 
         self.openDiagCard = PushSettingCard(
-            "開啟資料夾",
+            t("settings.open_folder"),
             FluentIcon.DEVELOPER_TOOLS,
-            "診斷資料目錄",
-            "內含每次簽到前後的頁面與 API 擷取結果",
+            t("settings.diag_dir"),
+            t("settings.diag_dir.hint"),
             self,
         )
         self.openDiagCard.clicked.connect(
@@ -527,10 +532,10 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.openDiagCard, storage))
 
         self.clearDataCard = PushSettingCard(
-            "清除資料",
+            t("settings.clear_local.all"),
             FluentIcon.DELETE,
-            "清除所有本機資料",
-            "刪除日誌與診斷檔（不影響設定與帳號）",
+            t("settings.clear_local"),
+            t("settings.clear_local.hint"),
             self,
         )
         self.clearDataCard.clicked.connect(lambda: self._changed("clear_local_data", True))
@@ -538,13 +543,13 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.clearDataCard, storage))
 
         # --- 關於 ---------------------------------------------------------
-        about = self._group("關於")
+        about = self._group(t("settings.about.group"))
         self.versionCard = PushSettingCard(
             f"v{APP_VERSION}",
             FluentIcon.INFO,
             APP_NAME_CN,
             f"選擇器包 v{SELECTOR_PACK_VERSION}｜"
-            + ("可攜模式" if paths.is_portable() else f"安裝位置 {paths.install_dir()}"),
+            + (t("settings.about.portable") if paths.is_portable() else t("settings.about.install_at", path=paths.install_dir())),
             self,
         )
         self.versionCard.clicked.connect(
@@ -554,10 +559,10 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.versionCard, about))
 
         self.licenseCard = PushSettingCard(
-            "檢視授權",
+            t("settings.license.open"),
             FluentIcon.CERTIFICATE,
-            "授權條款：GNU GPL v3",
-            "本程式使用 PySide6-Fluent-Widgets（GPL-3.0），因此同樣以 GPL-3.0 發佈",
+            t("settings.license"),
+            "GNU GPL v3",
             self,
         )
         self.licenseCard.clicked.connect(self._open_license)
@@ -565,10 +570,10 @@ class SettingsPage(SmoothScrollArea):
         self._cards.append((self.licenseCard, about))
 
         self.noticesCard = PushSettingCard(
-            "檢視清單",
+            t("settings.notices.open"),
             FluentIcon.DOCUMENT,
-            "第三方元件授權",
-            "PySide6／Qt、PySide6-Fluent-Widgets、Playwright、loguru、pywin32",
+            t("settings.notices"),
+            t("settings.notices.hint"),
             self,
         )
         self.noticesCard.clicked.connect(self._open_notices)
@@ -594,7 +599,7 @@ class SettingsPage(SmoothScrollArea):
         """把設定值載入卡片（不觸發 on_change）。"""
         self._loading = True
         try:
-            self.timeCard.setContent(f"目前：{cfg.daily_time}")
+            self.timeCard.setContent(t("settings.time.picked", value=cfg.daily_time))
             for key, card in self._bindings().items():
                 value = getattr(cfg, key, None)
                 if value is not None:
@@ -603,7 +608,7 @@ class SettingsPage(SmoothScrollArea):
             self._loading = False
 
     def set_daily_time(self, value: str) -> None:
-        self.timeCard.setContent(f"目前：{value}")
+        self.timeCard.setContent(t("settings.time.picked", value=value))
 
     def _bindings(self) -> dict[str, Any]:
         return {
