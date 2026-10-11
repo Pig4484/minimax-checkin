@@ -359,5 +359,20 @@
   "config.browser.chromium": "内置 Chromium（免安装）",
   "config.browser.chrome": "系统 Google Chrome",
   "config.browser.msedge": "系统 Microsoft Edge",
-  "login.state.signed": "已登录"
+  "login.state.signed": "已登录",
+  "worker.action.check_update": "检查更新",
+  "settings.update.check": "检查更新",
+  "settings.update.check.hint": "立即向 GitHub 查询最新版本（每天最多自动检查一次）",
+  "settings.update.check_now": "立即检查",
+  "settings.update.notify": "有新版本时通知",
+  "settings.update.notify.hint": "发现新版本时显示横幅与托盘通知",
+  "settings.update.onstart": "启动时检查更新",
+  "settings.update.onstart.hint": "启动后自动检查一次，每天最多一次",
+  "settings.update.available": "发现新版本 {latest}（目前 {current}），按立即检查可前往下载页",
+  "settings.version.current": "目前版本：{version}",
+  "notify.update.title": "发现新版本",
+  "notify.update.body": "最新版本 {latest}，请到设置 → 关于 → 检查更新前往下载（覆盖安装即可，设置不会丢失）",
+  "notify.update.go": "前往下载",
+  "notify.update.latest": "已是最新版本",
+  "notify.update.latest.body": "目前版本 {current} 已是最新"
 }

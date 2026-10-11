@@ -359,5 +359,20 @@
   "config.browser.chromium": "Built-in Chromium (no install)",
   "config.browser.chrome": "System Google Chrome",
   "config.browser.msedge": "System Microsoft Edge",
-  "login.state.signed": "Signed in"
+  "login.state.signed": "Signed in",
+  "worker.action.check_update": "Check for updates",
+  "settings.update.check": "Check for updates",
+  "settings.update.check.hint": "Query GitHub for the latest release now (auto-check at most once a day)",
+  "settings.update.check_now": "Check now",
+  "settings.update.notify": "Notify on new version",
+  "settings.update.notify.hint": "Show a banner and tray notification when a new version is found",
+  "settings.update.onstart": "Check for updates on startup",
+  "settings.update.onstart.hint": "Check once after startup, at most once a day",
+  "settings.update.available": "New version {latest} (current {current}); press Check now to open the download page",
+  "settings.version.current": "Current version: {version}",
+  "notify.update.title": "New version available",
+  "notify.update.body": "Latest is {latest}. Go to Settings → About → Check for updates to download (reinstall over it; settings are kept)",
+  "notify.update.go": "Open download page",
+  "notify.update.latest": "Already up to date",
+  "notify.update.latest.body": "Current version {current} is the latest"
 }

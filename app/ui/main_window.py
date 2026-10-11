@@ -51,6 +51,7 @@ class MainWindow(FluentWindow):
         self.worker = worker
         self._quitting = False
         self._tray_hint_shown = False
+        self._pending_update_url = ""
         self._results: dict[str, dict] = {}
         self._shown_once = False  # ?????????--minimized ?????? False?
 
@@ -73,6 +74,12 @@ class MainWindow(FluentWindow):
         self._init_title_bar()
         self._init_tray()
         self._connect_signals()
+        try:
+            self.settingsPage.set_on_update_check(
+                lambda: self.worker.request_check_update(manual=True)
+            )
+        except Exception:
+            pass
         self._apply_theme()
         self.refresh_all()
 
@@ -212,6 +219,30 @@ class MainWindow(FluentWindow):
             message = str(payload.get("message", ""))
             logger.warning(message)
             self.info_bar(t("notify.error"), message, ok=False)
+        elif event == "update_available":
+            if self.cfg.notify_update:
+                latest = str(payload.get("latest", ""))
+                self._pending_update_url = str(payload.get("url", ""))
+                self.info_bar(
+                    t("notify.update.title"),
+                    t("notify.update.body", latest=latest),
+                    ok=True,
+                    duration=15000,
+                )
+                self.notify(
+                    t("notify.update.title"),
+                    t("notify.update.body", latest=latest),
+                )
+                try:
+                    self.settingsPage.set_update_available(latest)
+                except Exception:
+                    pass
+        elif event == "update_checked":
+            self.info_bar(
+                t("notify.update.latest"),
+                t("notify.update.latest.body", current=payload.get("current", "")),
+                ok=True,
+            )
 
     def _on_login_state(self, payload: dict) -> None:
         """登入流程各階段的提示（綠色 InfoBar＋帳號卡轉圈圈，不再用藍色 StateToolTip）。"""

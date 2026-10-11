@@ -68,6 +68,9 @@ class AppConfig:
     notify_failure: bool = True
     notify_relogin: bool = True
     notify_minimize_hint: bool = True  # 縮到托盤時是否顯示「仍在背景執行」提示
+    notify_update: bool = True         # 有新版本時通知
+    check_update_on_start: bool = True  # 啟動時檢查一次更新
+    last_update_check: str = ""        # 上次檢查更新的日期 YYYY-MM-DD（每天最多一次）
 
     # --- 進階 ---
     browser_channel: str = "chromium"

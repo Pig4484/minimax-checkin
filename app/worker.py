@@ -99,6 +99,10 @@ class AutomationWorker(QThread):
     def request_download_browser(self) -> None:
         self._submit(self._download_browser(), t("worker.action.download"))
 
+    def request_check_update(self, manual: bool = False) -> None:
+        """檢查應用更新（manual=True 時忽略每天一次限制）。"""
+        self._submit(self._check_update(manual), t("worker.action.check_update"))
+
     # --- 內部 ----------------------------------------------------------
     def _emit(self, event: str, payload: dict[str, Any]) -> None:
         self.eventReceived.emit(event, payload)
@@ -125,6 +129,12 @@ class AutomationWorker(QThread):
             return
         self._ready = True
         self._emit("ready", {"next_run_text": self.scheduler.next_run_text()})
+        # 啟動後檢查一次應用更新（每天最多一次，失敗靜默）
+        if self.cfg.check_update_on_start:
+            try:
+                await self._check_update(manual=False)
+            except Exception:
+                pass
         try:
             await self._shutdown.wait()
         finally:
@@ -271,6 +281,37 @@ class AutomationWorker(QThread):
                     await context.close()
                 except Exception:
                     pass
+
+    async def _check_update(self, manual: bool = False) -> None:
+        """檢查應用更新：每天最多自動查一次，手動可隨時查。"""
+        from app.constants import APP_VERSION
+        from app.core import updater
+
+        today = updater.today_text()
+        if not manual and self.cfg.last_update_check == today:
+            return  # 今天已查過（成功或失敗都算，避免反覆打 API）
+        info = await asyncio.to_thread(updater.fetch_latest)
+        self.cfg.last_update_check = today
+        try:
+            self.cfg.save()
+        except Exception:
+            pass
+        if not info.checked:
+            return
+        if info.error:
+            logger.debug(f"更新檢查失敗：{info.error}")
+            return
+        if info.has_update:
+            logger.info(f"發現新版本：{info.latest}（目前 {APP_VERSION}）")
+            self._emit(
+                "update_available",
+                {"latest": info.latest, "current": APP_VERSION, "url": info.url},
+            )
+        elif manual:
+            self._emit(
+                "update_checked",
+                {"latest": info.latest or APP_VERSION, "current": APP_VERSION, "url": info.url},
+            )
 
     async def _download_browser(self) -> None:
         """下載內建 Chromium 核心到本機資料目錄（精簡版安裝使用）。

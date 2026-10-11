@@ -1,3 +1,6 @@
-zh-CN untranslated: 0
+zh-CN untranslated: 3
+  notify.update.latest
+  notify.update.latest.body
+  settings.version.current
 en untranslated: 1
   status.id_prefix

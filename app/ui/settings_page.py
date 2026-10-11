@@ -93,6 +93,7 @@ class SettingsPage(SmoothScrollArea):
 
         self.cfg = cfg
         self._on_change = on_change
+        self._on_update_check: Callable[[], None] | None = None
         self._loading = True
         self._cards: list[tuple[SettingCard, SettingCardGroup]] = []
 
@@ -569,6 +570,37 @@ class SettingsPage(SmoothScrollArea):
         about.addSettingCard(self.licenseCard)
         self._cards.append((self.licenseCard, about))
 
+        self.updateCheckCard = PushSettingCard(
+            t("settings.update.check_now"),
+            FluentIcon.SYNC,
+            t("settings.update.check"),
+            t("settings.update.check.hint"),
+            self,
+        )
+        self.updateCheckCard.clicked.connect(self._on_check_update_clicked)
+        self.updateNotifyCard = SwitchCard(
+            FluentIcon.MEGAPHONE,
+            t("settings.update.notify"),
+            t("settings.update.notify.hint"),
+            "notify_update",
+            self.cfg,
+            self._setting_changed,
+            self,
+        )
+        about.addSettingCard(self.updateNotifyCard)
+        self._cards.append((self.updateNotifyCard, about))
+        self.updateOnStartCard = SwitchCard(
+            FluentIcon.SYNC,
+            t("settings.update.onstart"),
+            t("settings.update.onstart.hint"),
+            "check_update_on_start",
+            self.cfg,
+            self._setting_changed,
+            self,
+        )
+        about.addSettingCard(self.updateOnStartCard)
+        self._cards.append((self.updateOnStartCard, about))
+
         self.noticesCard = PushSettingCard(
             t("settings.notices.open"),
             FluentIcon.DOCUMENT,
@@ -591,6 +623,17 @@ class SettingsPage(SmoothScrollArea):
         path = paths.notices_file()
         if path.exists():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    # --- 應用更新入口 --------------------------------------------------
+    def set_on_update_check(self, callback) -> None:
+        """設定「立即檢查」按鈕的回呼（由 MainWindow 轉交 worker）。"""
+        self._on_update_check = callback
+
+    def _on_check_update_clicked(self) -> None:
+        if self._loading:
+            return
+        if self._on_update_check is not None:
+            self._on_update_check()
 
         # （日誌／診斷／關於 已移至「檔案位置」與「關於」群組）
 
@@ -633,6 +676,8 @@ class SettingsPage(SmoothScrollArea):
             "notify_failure": self.notifyFailCard,
             "notify_relogin": self.notifyReloginCard,
             "notify_minimize_hint": self.notifyMinimizeHintCard,
+            "notify_update": self.updateNotifyCard,
+            "check_update_on_start": self.updateOnStartCard,
             "browser_channel": self.browserCard,
             "proxy": self.proxyCard,
             "custom_user_agent": self.userAgentCard,
