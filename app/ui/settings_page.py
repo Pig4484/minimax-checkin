@@ -578,28 +578,26 @@ class SettingsPage(SmoothScrollArea):
             self,
         )
         self.updateCheckCard.clicked.connect(self._on_check_update_clicked)
-        self.updateNotifyCard = SwitchCard(
-            FluentIcon.MEGAPHONE,
-            t("settings.update.notify"),
-            t("settings.update.notify.hint"),
+        self.updateNotifyCard = self._add(
+            about,
+            SwitchCard(
+                FluentIcon.MEGAPHONE,
+                t("settings.update.notify"),
+                t("settings.update.notify.hint"),
+            ),
             "notify_update",
-            self.cfg,
-            self._setting_changed,
-            self,
+            "checkedChanged",
         )
-        about.addSettingCard(self.updateNotifyCard)
-        self._cards.append((self.updateNotifyCard, about))
-        self.updateOnStartCard = SwitchCard(
-            FluentIcon.SYNC,
-            t("settings.update.onstart"),
-            t("settings.update.onstart.hint"),
+        self.updateOnStartCard = self._add(
+            about,
+            SwitchCard(
+                FluentIcon.SYNC,
+                t("settings.update.onstart"),
+                t("settings.update.onstart.hint"),
+            ),
             "check_update_on_start",
-            self.cfg,
-            self._setting_changed,
-            self,
+            "checkedChanged",
         )
-        about.addSettingCard(self.updateOnStartCard)
-        self._cards.append((self.updateOnStartCard, about))
 
         self.noticesCard = PushSettingCard(
             t("settings.notices.open"),
