@@ -578,6 +578,8 @@ class SettingsPage(SmoothScrollArea):
             self,
         )
         self.updateCheckCard.clicked.connect(self._on_check_update_clicked)
+        about.addSettingCard(self.updateCheckCard)
+        self._cards.append((self.updateCheckCard, about))
         self.updateNotifyCard = self._add(
             about,
             SwitchCard(
