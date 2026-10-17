@@ -1,6 +1,6 @@
 [project]
 name = "minimax-checkin"
-version = "1.0.0"
+version = "1.0.1"
 description = "MiniMax Agent 每日自動簽到工具（Fluent Design GUI，風格參考 Ghost Downloader）"
 requires-python = ">=3.10"
 dependencies = [

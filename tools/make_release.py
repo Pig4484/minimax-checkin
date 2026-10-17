@@ -1,10 +1,10 @@
-"""以 GitHub REST API 建立 v1.0.0 Release 並上傳打包附件。
+"""以 GitHub REST API 建立 v1.0.1 Release 並上傳打包附件。
 
 用法（PowerShell）：
     $env:GITHUB_TOKEN = "<PAT>"
     .\.venv\Scripts\python.exe tools/make_release.py
 
-讀取 docs/release-v1.0.0.md 當 release 內文，上傳 dist/ 下兩個 full 產物。
+讀取 docs/release-v1.0.1.md 當 release 內文，上傳 dist/ 下兩個 full 產物。
 只用標準庫（urllib），無需額外依賴。
 """
 from __future__ import annotations
@@ -17,14 +17,14 @@ import urllib.request
 
 OWNER = "Pig4484"
 REPO = "minimax-checkin"
-TAG = "v1.0.0"
-NAME = "v1.0.0 — 首次公開發行"
+TAG = "v1.0.1"
+NAME = "v1.0.1"
 DRAFT = False
 PRERELEASE = False
-NOTES_PATH = os.path.join("docs", "release-v1.0.0.md")
+NOTES_PATH = os.path.join("docs", "release-v1.0.1.md")
 ASSETS = [
-    os.path.join("dist", "installer", "MiniMaxCheckin-Setup-1.0.0-full.exe"),
-    os.path.join("dist", "portable", "MiniMaxCheckin-Portable-1.0.0-full.zip"),
+    os.path.join("dist", "installer", "MiniMaxCheckin-Setup-1.0.1-full.exe"),
+    os.path.join("dist", "portable", "MiniMaxCheckin-Portable-1.0.1-full.zip"),
 ]
 API = "https://api.github.com"
 

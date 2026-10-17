@@ -7,7 +7,7 @@ from enum import Enum
 
 APP_NAME = "Minimax Check-in"
 APP_NAME_CN = "MiniMax 自動簽到"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 APP_ID = "MinimaxCheckin"
 ORG_NAME = "MinimaxCheckin"
 PROJECT_URL = "https://github.com/"
