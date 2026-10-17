@@ -182,6 +182,8 @@
   "notify.engine_wait": "自动化引擎尚未就绪，请稍候再试。",
   "notify.account.added": "已新增账号",
   "notify.account.added.body": "将打开浏览器窗口，请在该窗口完成登录（Google／Email 验证码／GitHub）。",
+  "notify.session.plain.title": "登录状态未加密",
+  "notify.session.plain.body": "加密组件（pywin32／DPAPI）不可用，本次 session 以明文保存；请勿将本机资料复制到别处，建议重装完整版。",
   "notify.account.deleted": "已删除账号",
   "notify.account.delete.title": "确定要删除此账号？",
   "notify.account.delete.body": "「{name}」的登录 session 会被清除，之后需要重新登录。",

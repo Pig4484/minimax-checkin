@@ -69,6 +69,7 @@ class AccountManager:
         self._index = paths.accounts_dir() / "index.json"
         self.encrypt = encrypt
         self._accounts: list[Account] = []
+        self.last_save_encrypted: bool = True
         self.load()
 
     # --- 索引 ---------------------------------------------------------
@@ -176,6 +177,7 @@ class AccountManager:
         encrypt = self.encrypt if encrypt is None else encrypt
         self.clear_state(account)
         blob, encrypted = crypto.dumps_state(state, encrypt=encrypt)
+        self.last_save_encrypted = encrypted
         self._state_path(account, encrypted).write_bytes(blob)
         account.last_login_at = now_text()
         self.update(

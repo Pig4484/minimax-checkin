@@ -26,10 +26,10 @@ def test_portable_readme_contents():
 
     assert "1.2.3" in text
     assert "免安裝版" in text
-    assert "%APPDATA%\\MinimaxCheckin" in text, "必須說明設定檔存放位置"
-    assert "%LOCALAPPDATA%\\MinimaxCheckin" in text, "必須說明本機資料存放位置"
+    # 免安裝版預設即為完全可攜：資料寫 exe 旁 data，不寫 AppData。
+    assert ".\\data\\config.json" in text, "必須說明預設寫入 exe 旁 data"
     assert "portable.flag" in text, "必須說明完全可攜模式"
-    assert "請勿解壓縮到桌面" in text, "必須提醒不要在桌面存放檔案"
+    assert "傳送到桌面當捷徑" in text, "必須教使用者用捷徑而非搬 exe 本體"
     assert "已內建 Chromium" in text
 
 
@@ -83,6 +83,7 @@ def test_portable_zip_layout(tmp_path, monkeypatch):
     assert "MiniMax Check-in/MinimaxCheckin.exe" in names
     assert "MiniMax Check-in/_internal/data.bin" in names
     assert "MiniMax Check-in/免安裝版說明.txt" in names
+    assert "MiniMax Check-in/portable.flag" in names, "免安裝版必須預帶 portable.flag（解壓即隔離）"
     assert not any(name.lower().endswith(".lnk") for name in names), "免安裝版不得含桌面捷徑"
     # 說明檔只能存在於 ZIP 內，不得落地到執行檔目錄（否則安裝版也會帶上它）
     assert not (app_dir / "免安裝版說明.txt").exists(), "說明檔不應寫入執行檔目錄"

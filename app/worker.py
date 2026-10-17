@@ -34,7 +34,12 @@ class AutomationWorker(QThread):
     def __init__(self, cfg: AppConfig, parent=None) -> None:
         super().__init__(parent)
         self.cfg = cfg
-        self.accounts = AccountManager(encrypt=cfg.encrypt_sessions)
+        # 可攜模式強制加密：USB 丟失時加密檔解不開，明文則會直接外洩；
+        # 若 DPAPI 不可用，存檔時改由主視窗警告（見 login_state/state_encrypted）。
+        encrypt = bool(cfg.encrypt_sessions)
+        if paths.is_portable() and not encrypt:
+            encrypt = True
+        self.accounts = AccountManager(encrypt=encrypt)
         self.state = RunStateStore()
         self.browser = BrowserManager(self.accounts)
         self.engine = CheckinEngine(cfg, self.accounts, self.browser, self.state, emit=self._emit)
@@ -222,6 +227,7 @@ class AutomationWorker(QThread):
         account.last_message = t("login.state.signed")
         account.drift_count = 0
         self.accounts.save_state(account, result.state)
+        state_encrypted = self.accounts.last_save_encrypted
         self.accounts.update(account.id, persist=True)
         self._emit(
             "login_state",
@@ -230,6 +236,7 @@ class AutomationWorker(QThread):
                 "state": "success",
                 "user_name": account.display_name,
                 "message": t("login.state.saved"),
+                "state_encrypted": state_encrypted,
             },
         )
         self._emit("accounts_changed", {})

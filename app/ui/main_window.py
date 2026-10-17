@@ -263,6 +263,13 @@ class MainWindow(FluentWindow):
             self.accountPage.set_busy(account_id, False)
             self.info_bar(t("notify.login.success"), f"{payload.get('user_name', '')}{t('notify.login.saved')}", ok=True)
             self.notify(t("notify.login.success"), f"{payload.get('user_name', '')} {t('notify.login.done')}")
+            if not bool(payload.get("state_encrypted", True)):
+                self.info_bar(
+                    t("notify.session.plain.title"),
+                    t("notify.session.plain.body"),
+                    ok=False,
+                    duration=15000,
+                )
             self.refresh_all()
         elif state == "failed":
             self.accountPage.set_busy(account_id, False)

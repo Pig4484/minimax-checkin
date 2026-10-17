@@ -54,6 +54,19 @@ def test_plain_session_roundtrip(temp_root):
     assert manager.has_state(account)
     assert manager.load_state(account) == STATE
     assert account.last_login_at != ""
+    assert manager.last_save_encrypted is False, "明文存檔必須標記未加密（主視窗要警告）"
+
+
+def test_encrypted_save_marks_flag(temp_root):
+    """加密存檔必須標記已加密（主視窗不警告）；無 DPAPI 時跳過。"""
+    if not crypto.is_available():
+        pytest.skip("此環境沒有 pywin32（DPAPI）")
+
+    manager = AccountManager(encrypt=True)
+    account = manager.add()
+    manager.save_state(account, STATE)
+
+    assert manager.last_save_encrypted is True
 
 
 def test_encrypted_session_roundtrip(temp_root):

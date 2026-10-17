@@ -176,28 +176,30 @@ PORTABLE_README = """\
 
 【這是什麼】
 本版本不需要安裝程式，解壓縮後直接執行即可，可放在 USB 隨身碟使用。
+本版本預設即為完全可攜：所有資料（設定、帳號登入狀態、日誌）都存放在
+exe 旁的 data 資料夾，完全不寫入 AppData；刪除整個資料夾即乾淨移除。
 與安裝版功能完全相同（同樣支援開機自啓動、系統匣常駐、每日自動簽到）。
 
 【使用方式】
 1. 將整個資料夾解壓縮到任何位置（建議 D:\\Apps\\{folder} 等程式專用資料夾）
-2. 雙擊 MinimaxCheckin.exe 即可啟動
+2. 雙擊 MiniMax Check-in\MinimaxCheckin.exe 即可啟動（根目錄的 exe；
+   也可在該 exe 上按右鍵 → 傳送到桌面當捷徑，方便以後啟動）
 3. 首次使用請到「帳號」頁按「新增帳號」完成一次登入（之後不必再登入）
 
-【重要：請勿解壓縮到桌面】
-依 Windows 使用慣例，本程式不會在桌面建立或存放任何檔案。請將本資料夾放在
+【擺放建議】
+建議將本資料夾放在
 程式專用目錄（例如 D:\\Apps\\{folder}），保持桌面整潔。
 
-【資料存放位置（與安裝版相同）】
-  設定檔：%APPDATA%\\MinimaxCheckin\\config.json
-  本機資料：%LOCALAPPDATA%\\MinimaxCheckin\\
+【資料存放位置（預設：exe 旁 data，不寫 AppData）】
+  設定檔：.\data\config.json
+  本機資料：.\data\
             （帳號登入狀態 accounts\\、日誌 logs\\、診斷 diagnostics\\）
-  * 這是 Windows 應用程式的標準位置：設定隨使用者漫遊，加密的登入狀態留在本機
-  * 不會寫入桌面、不會寫入 Program Files
+  * zip 內已預帶 portable.flag，故預設隔離；不會寫入桌面、不會寫入 Program Files
 
-【完全可攜模式（進階，選用）】
-若希望所有資料都存放在本資料夾內（例如放在 USB 隨身碟帶著走），
-請在本資料夾內新增一個空檔案並命名為：portable.flag
-之後所有資料會改存到 data\\ 子資料夾，完全不寫入 AppData。
+【改用 AppData（選用）】
+若希望改用與安裝版相同的位置（設定進 Roaming、資料進 LocalAppData，
+與安裝版共用帳號），請刪除本資料夾內的 portable.flag，
+之後會改寫入 AppData。
 
 【移除方式】
 刪除整個資料夾即可。若先前使用過「開機自啓動」，請先開啟程式於
@@ -259,6 +261,9 @@ def create_portable_zip(app_dir: Path, version: str, flavor: str) -> Path:
 
     started = time.monotonic()
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        # 免安裝版預設即為完全可攜：預帶 portable.flag，解壓後資料寫 exe 旁 data\，不寫 AppData。
+        # 若使用者刪除 portable.flag，則退回與安裝版相同的 AppData 位置。
+        zf.writestr(str(prefix / "portable.flag"), b"")
         # 說明檔直接寫進 ZIP，不落地到執行檔目錄
         zf.writestr(
             str(prefix / "免安裝版說明.txt"),

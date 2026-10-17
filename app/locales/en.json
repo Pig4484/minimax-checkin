@@ -182,6 +182,8 @@
   "notify.engine_wait": "Automation engine is not ready yet. Please try again shortly.",
   "notify.account.added": "Account added",
   "notify.account.added.body": "A browser window will open; please sign in there (Google / Email code / GitHub).",
+  "notify.session.plain.title": "Session stored unencrypted",
+  "notify.session.plain.body": "Encryption (pywin32 / DPAPI) is unavailable; this session was saved in plain text. Do not copy local data elsewhere; reinstall the full build.",
   "notify.account.deleted": "Account deleted",
   "notify.account.delete.title": "Delete this account?",
   "notify.account.delete.body": "\"{name}\"'s session will be cleared; you must sign in again.",
