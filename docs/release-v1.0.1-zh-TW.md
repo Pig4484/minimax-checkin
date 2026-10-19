@@ -15,8 +15,10 @@
 
 | 版本 | 檔案 | 說明 |
 |---|---|---|
-| 安裝包 | `MiniMaxCheckin-Setup-1.0.1-full.exe`（約 209MB） | 標準 Windows 安裝程式：安裝精靈、開始功能表、控制台新增／移除程式；可選桌面捷徑與開機自啓動；內建 Chromium |
-| 免安裝版 | `MiniMaxCheckin-Portable-1.0.1-full.zip`（約 281MB） | 解壓即用；預設隔離（內附 `portable.flag`）；刪除資料夾即移除 |
+| 安裝包（完整版） | `MiniMaxCheckin-Setup-1.0.1-full.exe`（約 209MB） | 標準安裝程式；內建 Chromium，開箱即用 |
+| 安裝包（精簡版） | `MiniMaxCheckin-Setup-1.0.1-lite.exe`（約 61MB） | 不含 Chromium，需系統 Chrome／Edge（設定頁可切換，缺失可一鍵下載） |
+| 免安裝版（完整版） | `MiniMaxCheckin-Portable-1.0.1-full.zip`（約 281MB） | 解壓即用；預設隔離（內附 `portable.flag`） |
+| 免安裝版（精簡版） | `MiniMaxCheckin-Portable-1.0.1-lite.zip`（約 85MB） | 同上，不含 Chromium |
 
 兩個版本均為無主控台 GUI、內建 Chromium 核心、三語介面（繁中／簡中／英文，首次啟動跟隨系統語言）。
 

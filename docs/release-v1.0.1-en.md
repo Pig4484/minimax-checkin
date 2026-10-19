@@ -15,8 +15,10 @@
 
 | Edition | File | Notes |
 |---|---|---|
-| Installer | `MiniMaxCheckin-Setup-1.0.1-full.exe` (~209MB) | Standard Windows installer: wizard, Start Menu, Apps & features; optional desktop shortcut & autostart; bundled Chromium |
-| Portable | `MiniMaxCheckin-Portable-1.0.1-full.zip` (~281MB) | Extract & run; isolated by default (`portable.flag` included); delete the folder to uninstall |
+| Installer (full) | `MiniMaxCheckin-Setup-1.0.1-full.exe` (~209MB) | Bundled Chromium, works out of the box |
+| Installer (lite) | `MiniMaxCheckin-Setup-1.0.1-lite.exe` (~61MB) | No Chromium; needs system Chrome/Edge (switch in Settings, one-click download if missing) |
+| Portable (full) | `MiniMaxCheckin-Portable-1.0.1-full.zip` (~281MB) | Extract & run; isolated by default (`portable.flag` included) |
+| Portable (lite) | `MiniMaxCheckin-Portable-1.0.1-lite.zip` (~85MB) | Same as above, no Chromium |
 
 Both builds are console-free GUI (`console=False`), bundled Chromium, trilingual UI (zh-TW / zh-CN / en, follows system language on first run).
 
