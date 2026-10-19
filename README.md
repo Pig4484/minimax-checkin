@@ -1,6 +1,6 @@
 # Minimax Check-in — MiniMax Agent Daily Auto Check-in
 
-[繁體中文](README_zh-TW.md) | English
+[简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md) | English
 
 Automatically completes the daily check-in at [agent.minimax.io](https://agent.minimax.io)
 to claim Credits. Features a **modern Fluent Design GUI** (styled after the open-source

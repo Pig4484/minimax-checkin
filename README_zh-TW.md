@@ -1,6 +1,6 @@
 # MiniMax Agent 自動簽到工具（Minimax Check-in）
 
-[English](README.md) | 繁體中文
+[English](README.md) | [简体中文](README_zh-CN.md) | 繁體中文
 
 自動在 [agent.minimax.io](https://agent.minimax.io) 完成每日簽到以領取 Credits，具備
 **現代化 Fluent Design 圖形介面**（風格參考開源專案
