@@ -145,6 +145,7 @@
   "settings.notify.minimize.hint": "关闭后按 X 缩到托盘不再弹出提示",
   "settings.browser": "浏览器核心",
   "settings.browser.hint": "改用系统已安装的 Chrome／Edge 有时能降低风控概率",
+  "settings.browser.status.title": "核心状态",
   "settings.browser.status": "内置 Chromium：{builtin}｜系统：{system}",
   "settings.browser.download": "下载核心",
   "settings.proxy": "代理服务器",

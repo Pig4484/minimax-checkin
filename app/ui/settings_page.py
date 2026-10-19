@@ -411,7 +411,7 @@ class SettingsPage(SmoothScrollArea):
         self.browserStatusCard = PushSettingCard(
             t("settings.browser.download"),
             FluentIcon.DOWNLOAD,
-            t("settings.browser.status"),
+            t("settings.browser.status.title"),
             browser_status_text(),
             self,
         )

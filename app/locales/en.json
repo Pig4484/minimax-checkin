@@ -145,6 +145,7 @@
   "settings.notify.minimize.hint": "No popup when minimizing with X afterwards",
   "settings.browser": "Browser engine",
   "settings.browser.hint": "System Chrome/Edge sometimes lowers detection risk",
+  "settings.browser.status.title": "Engine status",
   "settings.browser.status": "Built-in Chromium: {builtin} | System: {system}",
   "settings.browser.download": "Download engine",
   "settings.proxy": "Proxy server",
