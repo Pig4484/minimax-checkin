@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from app.core.account import AccountManager
 from app.core.engine import CheckinEngine
+from app.core.network import is_online
 from app.core.state import RunStateStore
 from app.i18n import t
 from app.logger import logger
@@ -38,6 +39,10 @@ class Scheduler:
         self._startup_checked = False
         self._cancel = asyncio.Event()
         self.running = False
+        # 離線狀態追蹤（避免每個 tick 都洗版）
+        self._offline_notified = False
+        self._net_checked_at: datetime | None = None
+        self._net_ok = True
         self.current_reason = ""
 
     # ------------------------------------------------------------------
@@ -78,6 +83,15 @@ class Scheduler:
         if hours:
             return t("scheduler.hours", hours=hours, minutes=minutes)
         return t("scheduler.minutes", minutes=minutes)
+
+    # --- 網路檢查 ------------------------------------------------------
+    def _network_available(self) -> bool:
+        now = datetime.now()
+        if self._net_checked_at is not None and (now - self._net_checked_at).total_seconds() < 15:
+            return self._net_ok
+        self._net_checked_at = now
+        self._net_ok = is_online(getattr(self.cfg, "proxy", ""))
+        return self._net_ok
 
     # --- 生命週期 ------------------------------------------------------
     def start(self) -> None:
@@ -139,16 +153,27 @@ class Scheduler:
         now = datetime.now()
         self.state.reset_for_today()
 
+        online = self._network_available()
+        pending = self._pending_accounts()
+
+        # 離線時：不嘗試簽到，避免失敗洗版；等連線恢復後再自動執行
+        if not online:
+            if pending and not self._offline_notified:
+                logger.warning("目前無網路連線，已暫停自動簽到，待連線後自動重試")
+                self._offline_notified = True
+            return
+        self._offline_notified = False
+
         # 2) 啟動補簽（每個行程只檢查一次）
         if not self._startup_checked:
             self._startup_checked = True
-            if self.cfg.run_on_start_if_missed and self._pending_accounts():
+            if self.cfg.run_on_start_if_missed and pending:
                 logger.info("啟動補簽：今日仍有帳號未簽到")
                 await self._run("startup")
 
         # 3) 每日排程（若今日已無待簽帳號，直接標記完成，避免空跑）
         if not self.state.ran_today and now >= self.today_target(now):
-            if self._pending_accounts():
+            if pending:
                 await self._run("scheduled")
             else:
                 self.state.mark_finished(True, "今日已完成，無需執行")
@@ -161,11 +186,16 @@ class Scheduler:
             and self.state.state.attempts <= max(0, self.cfg.retry_times)
             and last_attempt is not None
             and now >= last_attempt + timedelta(minutes=self.cfg.retry_interval_minutes)
-            and self._pending_accounts()
+            and pending
         ):
             await self._run("retry")
 
     async def _run(self, reason: str, ids: list[str] | None = None) -> None:
+        # 離線時不執行，避免整串失敗與通知洗版（手動觸發時告知使用者）
+        if not self._network_available():
+            logger.warning(f"無網路連線，跳過本次簽到（{reason}）")
+            self.emit("error", {"message": t("network.offline")})
+            return
         self.running = True
         self.current_reason = reason
         self._cancel = asyncio.Event()
