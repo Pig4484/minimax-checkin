@@ -17,14 +17,16 @@ import urllib.request
 
 OWNER = "Pig4484"
 REPO = "minimax-checkin"
-TAG = "v1.0.1"
-NAME = "v1.0.1"
+TAG = "v1.0.2"
+NAME = "v1.0.2"
 DRAFT = False
 PRERELEASE = False
-NOTES_PATH = os.path.join("docs", "release-v1.0.1.md")
+NOTES_PATH = os.path.join("docs", "release-v1.0.2.md")
 ASSETS = [
-    os.path.join("dist", "installer", "MiniMaxCheckin-Setup-1.0.1-full.exe"),
-    os.path.join("dist", "portable", "MiniMaxCheckin-Portable-1.0.1-full.zip"),
+    os.path.join("dist", "installer", "MiniMaxCheckin-Setup-1.0.2-full.exe"),
+    os.path.join("dist", "installer", "MiniMaxCheckin-Setup-1.0.2-lite.exe"),
+    os.path.join("dist", "portable", "MiniMaxCheckin-Portable-1.0.2-full.zip"),
+    os.path.join("dist", "portable", "MiniMaxCheckin-Portable-1.0.2-lite.zip"),
 ]
 API = "https://api.github.com"
 

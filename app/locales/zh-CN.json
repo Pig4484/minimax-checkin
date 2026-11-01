@@ -377,5 +377,6 @@
   "notify.update.body": "最新版本 {latest}，请到设置 → 关于 → 检查更新前往下载（覆盖安装即可，设置不会丢失）",
   "notify.update.go": "前往下载",
   "notify.update.latest": "已是最新版本",
-  "notify.update.latest.body": "目前版本 {current} 已是最新"
+  "notify.update.latest.body": "目前版本 {current} 已是最新",
+  "network.offline": "当前无网络连接，已跳过本次签到，待连接后自动重试"
 }

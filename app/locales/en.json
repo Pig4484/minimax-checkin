@@ -377,5 +377,6 @@
   "notify.update.body": "Latest is {latest}. Go to Settings → About → Check for updates to download (reinstall over it; settings are kept)",
   "notify.update.go": "Open download page",
   "notify.update.latest": "Already up to date",
-  "notify.update.latest.body": "Current version {current} is the latest"
+  "notify.update.latest.body": "Current version {current} is the latest",
+  "network.offline": "No internet connection; skipped this check-in and will retry automatically once online"
 }
